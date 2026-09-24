@@ -122,6 +122,10 @@ Requirements:
 - Android API 26 or newer
 - Gemini Nano / ML Kit GenAI available on the device
 
+## Benchmarks
+
+Physical-device provider baselines are documented in [docs/benchmarks.md](docs/benchmarks.md). The current baseline set includes Apple Foundation Models on iPhone 17 Pro Max and Gemini Nano on Samsung Galaxy Z Fold7.
+
 ## Repository shape
 
 ```text
@@ -146,7 +150,7 @@ edge-frameworks-mobile/
 - [x] support streaming and cancellation
 - [x] add one provider per platform
 - [x] add example apps
-- [ ] add baseline latency and memory benchmarks
+- [x] add baseline latency and memory benchmarks
 
 ## Principles
 

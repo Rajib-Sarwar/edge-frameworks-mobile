@@ -14,6 +14,7 @@ import io.github.rajibsarwar.edgeframeworks.EdgeBenchmarkRunner
 import io.github.rajibsarwar.edgeframeworks.EdgeGenerationEvent
 import io.github.rajibsarwar.edgeframeworks.EdgeGenerationRequest
 import io.github.rajibsarwar.edgeframeworks.EdgeProviderRouter
+import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoAvailability
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoProvider
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -61,6 +62,7 @@ class MainActivity : Activity() {
 
         statusView = TextView(this).apply {
             text = "Checking on-device model…"
+            setPadding(0, padding / 2, 0, padding / 2)
         }
 
         promptView = EditText(this).apply {
@@ -71,11 +73,13 @@ class MainActivity : Activity() {
 
         runButton = Button(this).apply {
             text = "Run on device"
+            isEnabled = false
             setOnClickListener { generate() }
         }
 
         benchmarkButton = Button(this).apply {
             text = "Run benchmark"
+            isEnabled = false
             setOnClickListener { benchmark() }
         }
 
@@ -111,17 +115,35 @@ class MainActivity : Activity() {
 
     private fun refreshAvailability() {
         scope.launch {
-            val capabilities = provider.capabilities()
-            val isAvailable = capabilities.isNotEmpty()
+            when (provider.availability()) {
+                GeminiNanoAvailability.AVAILABLE -> {
+                    statusView.text =
+                        "Gemini Nano: AVAILABLE · ready for local generation."
+                    runButton.isEnabled = true
+                    benchmarkButton.isEnabled = true
+                }
 
-            statusView.text = if (isAvailable) {
-                "Gemini Nano is ready · running locally."
-            } else {
-                "Gemini Nano is not ready on this device."
+                GeminiNanoAvailability.DOWNLOADABLE -> {
+                    statusView.text =
+                        "Gemini Nano: DOWNLOADABLE · model is not installed yet."
+                    runButton.isEnabled = false
+                    benchmarkButton.isEnabled = false
+                }
+
+                GeminiNanoAvailability.DOWNLOADING -> {
+                    statusView.text =
+                        "Gemini Nano: DOWNLOADING · wait for the model download to finish."
+                    runButton.isEnabled = false
+                    benchmarkButton.isEnabled = false
+                }
+
+                GeminiNanoAvailability.UNAVAILABLE -> {
+                    statusView.text =
+                        "Gemini Nano: UNAVAILABLE · ML Kit reports this feature is unavailable."
+                    runButton.isEnabled = false
+                    benchmarkButton.isEnabled = false
+                }
             }
-
-            runButton.isEnabled = isAvailable
-            benchmarkButton.isEnabled = isAvailable
         }
     }
 

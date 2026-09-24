@@ -21,8 +21,16 @@ final class DemoViewModel: ObservableObject {
     @Published var isBenchmarking = false
     @Published var isAvailable = false
 
+    @Published var ragQuestion = "When does my Tokyo flight leave?"
+    @Published var ragStatus = "Preparing local knowledge…"
+    @Published var ragRetrievedOutput = ""
+    @Published var ragAnswer = ""
+    @Published var isRAGRunning = false
+    @Published var isRAGReady = false
+
     private var agent: EdgeAgent?
     private var provider: AppleFoundationModelProvider?
+    private var ragRetriever: EdgeRetriever?
 
     init() {
         configure()
@@ -47,6 +55,8 @@ final class DemoViewModel: ObservableObject {
             status = isAvailable
                 ? "Foundation Models is ready · running locally."
                 : "Foundation Models is not available on this device."
+
+            await configureLocalRAG()
         }
     }
 
@@ -134,6 +144,73 @@ final class DemoViewModel: ObservableObject {
         }
     }
 
+    func runRAG() {
+        guard
+            #available(iOS 26.0, *),
+            let provider,
+            let ragRetriever
+        else {
+            return
+        }
+
+        let question = ragQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !question.isEmpty else { return }
+
+        isRAGRunning = true
+        ragRetrievedOutput = ""
+        ragAnswer = ""
+        ragStatus = "Retrieving relevant chunks locally…"
+
+        Task {
+            defer { isRAGRunning = false }
+
+            do {
+                let results = try await ragRetriever.retrieve(
+                    query: question,
+                    topK: 3
+                )
+
+                ragRetrievedOutput = results
+                    .enumerated()
+                    .map { index, result in
+                        let score = result.score.formatted(
+                            .number.precision(.fractionLength(3))
+                        )
+                        return "\(index + 1). [\(score)] \(result.chunk.text)"
+                    }
+                    .joined(separator: "\n\n")
+
+                let context = results
+                    .map(\.chunk.text)
+                    .joined(separator: "\n")
+
+                ragStatus = "Generating answer from retrieved local context…"
+
+                let response = try await provider.generate(
+                    EdgeGenerationRequest(
+                        prompt: """
+                        Local context:
+                        \(context)
+
+                        Question:
+                        \(question)
+                        """,
+                        systemPrompt: """
+                        Answer using only the supplied local context. If the context does not contain
+                        the answer, say that the local knowledge does not contain enough information.
+                        """
+                    )
+                )
+
+                ragAnswer = response.text
+                ragStatus = "RAG completed locally · no network required."
+            } catch {
+                ragStatus = "Local RAG failed."
+                ragAnswer = String(describing: error)
+            }
+        }
+    }
+
     func runBenchmark() {
         guard
             #available(iOS 26.0, *),
@@ -176,6 +253,53 @@ final class DemoViewModel: ObservableObject {
             }
         }
     }
+
+    private func configureLocalRAG() async {
+        do {
+            let embeddingProvider = try AppleNaturalLanguageEmbeddingProvider()
+            let vectorStore = EdgeInMemoryVectorStore()
+            let retriever = EdgeRetriever(
+                embeddingProvider: embeddingProvider,
+                vectorStore: vectorStore
+            )
+
+            try await retriever.index(Self.demoChunks)
+            ragRetriever = retriever
+            isRAGReady = true
+            ragStatus = "Indexed \(Self.demoChunks.count) chunks locally."
+        } catch {
+            isRAGReady = false
+            ragStatus = "Local embeddings unavailable: \(error)"
+        }
+    }
+
+    private static let demoChunks: [EdgeChunk] = [
+        EdgeChunk(
+            id: "travel-flight",
+            documentID: "travel-notes",
+            text: "Our flight to Tokyo leaves Newark on October 12 at 9:30 AM."
+        ),
+        EdgeChunk(
+            id: "travel-hotel",
+            documentID: "travel-notes",
+            text: "We are staying at the Shinagawa Prince Hotel in Tokyo for four nights."
+        ),
+        EdgeChunk(
+            id: "travel-train",
+            documentID: "travel-notes",
+            text: "The airport train reservation is for the Narita Express after landing."
+        ),
+        EdgeChunk(
+            id: "insurance",
+            documentID: "personal-notes",
+            text: "The new insurance coverage begins on November 1."
+        ),
+        EdgeChunk(
+            id: "dinner",
+            documentID: "personal-notes",
+            text: "Friday dinner is reserved at an Italian restaurant at 7:00 PM."
+        )
+    ]
 
     private func formatBenchmark(
         _ summary: EdgeBenchmarkSummary

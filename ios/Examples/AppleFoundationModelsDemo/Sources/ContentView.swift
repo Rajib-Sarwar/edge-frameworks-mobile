@@ -81,6 +81,50 @@ struct ContentView: View {
                             .textSelection(.enabled)
                     }
                 }
+
+                Section("Local RAG") {
+                    Text(model.ragStatus)
+                        .foregroundStyle(.secondary)
+
+                    TextField(
+                        "Ask local knowledge",
+                        text: $model.ragQuestion,
+                        axis: .vertical
+                    )
+
+                    Button {
+                        model.runRAG()
+                    } label: {
+                        if model.isRAGRunning {
+                            HStack {
+                                ProgressView()
+                                Text("Running local RAG…")
+                            }
+                        } else {
+                            Text("Ask local knowledge")
+                        }
+                    }
+                    .disabled(
+                        isBusy ||
+                        !model.isRAGReady ||
+                        model.isRAGRunning
+                    )
+                }
+
+                if !model.ragRetrievedOutput.isEmpty {
+                    Section("Retrieved Chunks") {
+                        Text(model.ragRetrievedOutput)
+                            .font(.system(.body, design: .monospaced))
+                            .textSelection(.enabled)
+                    }
+                }
+
+                if !model.ragAnswer.isEmpty {
+                    Section("RAG Answer") {
+                        Text(model.ragAnswer)
+                            .textSelection(.enabled)
+                    }
+                }
             }
             .navigationTitle("Edge Frameworks")
         }

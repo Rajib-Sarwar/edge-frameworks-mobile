@@ -32,5 +32,43 @@ kotlin {
 dependencies {
     implementation(project(":edge-frameworks-core"))
     implementation(project(":edge-frameworks-gemini-nano"))
+    implementation(project(":edge-frameworks-mediapipe-embeddings"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+}
+
+
+val embeddingModelUrl =
+    "https://storage.googleapis.com/mediapipe-models/text_embedder/universal_sentence_encoder/float32/latest/universal_sentence_encoder.tflite"
+
+val generatedEmbeddingAssets =
+    layout.buildDirectory.dir("generated/embedding-assets")
+
+android.sourceSets["main"].assets.srcDir(generatedEmbeddingAssets)
+
+val downloadEmbeddingModel by tasks.registering {
+    val outputFile = generatedEmbeddingAssets.map {
+        it.file("universal_sentence_encoder.tflite")
+    }
+
+    outputs.file(outputFile)
+
+    doLast {
+        val target = outputFile.get().asFile
+        target.parentFile.mkdirs()
+
+        if (!target.exists()) {
+            java.net.URI(embeddingModelUrl)
+                .toURL()
+                .openStream()
+                .use { input ->
+                    target.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+        }
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(downloadEmbeddingModel)
 }

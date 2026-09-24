@@ -11,6 +11,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 
+enum class GeminiNanoAvailability {
+    AVAILABLE,
+    DOWNLOADABLE,
+    DOWNLOADING,
+    UNAVAILABLE
+}
+
 class GeminiNanoProvider : EdgeModelProvider {
     override val id: String = "google.gemini-nano"
 
@@ -24,17 +31,26 @@ class GeminiNanoProvider : EdgeModelProvider {
         this.client = client
     }
 
-    override suspend fun capabilities(): Set<EdgeCapability> {
+    suspend fun availability(): GeminiNanoAvailability {
         return try {
-            if (client.status() == GeminiNanoStatus.AVAILABLE) {
-                setOf(
-                    EdgeCapability.TEXT_GENERATION,
-                    EdgeCapability.STREAMING
-                )
-            } else {
-                emptySet()
+            when (client.status()) {
+                GeminiNanoStatus.AVAILABLE -> GeminiNanoAvailability.AVAILABLE
+                GeminiNanoStatus.DOWNLOADABLE -> GeminiNanoAvailability.DOWNLOADABLE
+                GeminiNanoStatus.DOWNLOADING -> GeminiNanoAvailability.DOWNLOADING
+                GeminiNanoStatus.UNAVAILABLE -> GeminiNanoAvailability.UNAVAILABLE
             }
         } catch (_: Exception) {
+            GeminiNanoAvailability.UNAVAILABLE
+        }
+    }
+
+    override suspend fun capabilities(): Set<EdgeCapability> {
+        return if (availability() == GeminiNanoAvailability.AVAILABLE) {
+            setOf(
+                EdgeCapability.TEXT_GENERATION,
+                EdgeCapability.STREAMING
+            )
+        } else {
             emptySet()
         }
     }
@@ -95,15 +111,15 @@ class GeminiNanoProvider : EdgeModelProvider {
     }
 
     private suspend fun ensureAvailable() {
-        when (client.status()) {
-            GeminiNanoStatus.AVAILABLE -> Unit
+        when (availability()) {
+            GeminiNanoAvailability.AVAILABLE -> Unit
 
-            GeminiNanoStatus.DOWNLOADABLE,
-            GeminiNanoStatus.DOWNLOADING -> {
+            GeminiNanoAvailability.DOWNLOADABLE,
+            GeminiNanoAvailability.DOWNLOADING -> {
                 throw EdgeProviderException.ModelNotReady(id)
             }
 
-            GeminiNanoStatus.UNAVAILABLE -> {
+            GeminiNanoAvailability.UNAVAILABLE -> {
                 throw EdgeProviderException.ProviderUnavailable(id)
             }
         }

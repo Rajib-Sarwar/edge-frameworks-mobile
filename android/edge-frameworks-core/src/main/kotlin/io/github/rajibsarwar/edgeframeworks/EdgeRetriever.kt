@@ -7,6 +7,15 @@ class EdgeRetriever(
     private val embeddingProvider: EdgeEmbeddingProvider,
     private val vectorStore: EdgeVectorStore
 ) {
+    suspend fun index(
+        document: EdgeDocument,
+        chunker: EdgeTextChunker = EdgeTextChunker()
+    ) {
+        index(
+            chunker.chunk(document)
+        )
+    }
+
     suspend fun index(chunks: List<EdgeChunk>) {
         val embeddings = buildList {
             for (chunk in chunks) {

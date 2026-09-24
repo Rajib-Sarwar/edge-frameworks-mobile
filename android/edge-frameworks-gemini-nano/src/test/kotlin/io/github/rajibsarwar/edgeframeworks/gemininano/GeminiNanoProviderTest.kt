@@ -28,6 +28,31 @@ class GeminiNanoProviderTest {
     }
 
     @Test
+    fun mapsDownloadProgressToPublicState() = runTest {
+        val provider = GeminiNanoProvider(
+            FakeGeminiNanoClient(
+                status = GeminiNanoStatus.DOWNLOADABLE,
+                downloadEvents = listOf(
+                    GeminiNanoDownloadEvent.Started,
+                    GeminiNanoDownloadEvent.Progress(1_048_576),
+                    GeminiNanoDownloadEvent.Completed
+                )
+            )
+        )
+
+        val states = provider.download().toList()
+
+        assertEquals(
+            listOf(
+                GeminiNanoDownloadState.Started,
+                GeminiNanoDownloadState.Progress(1_048_576),
+                GeminiNanoDownloadState.Completed
+            ),
+            states
+        )
+    }
+
+    @Test
     fun downloadableModelIsReportedAsNotReady() = runTest {
         val provider = GeminiNanoProvider(
             FakeGeminiNanoClient(status = GeminiNanoStatus.DOWNLOADABLE)
@@ -119,9 +144,13 @@ private class FakeGeminiNanoClient(
     private val status: GeminiNanoStatus,
     private val generatedText: String = "",
     private val streamedChunks: List<String> = emptyList(),
+    private val downloadEvents: List<GeminiNanoDownloadEvent> = emptyList(),
     private val cancelGeneration: Boolean = false
 ) : GeminiNanoClient {
     override suspend fun status(): GeminiNanoStatus = status
+
+    override fun download() =
+        flowOf(*downloadEvents.toTypedArray())
 
     override suspend fun generate(prompt: String): String {
         if (cancelGeneration) {

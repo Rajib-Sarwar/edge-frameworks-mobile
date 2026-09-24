@@ -46,6 +46,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        actionBar?.hide()
         setContentView(buildContentView())
         refreshAvailability()
     }
@@ -68,9 +69,15 @@ class MainActivity : Activity() {
             textSize = 22f
         }
 
+        val statusLabel = TextView(this).apply {
+            text = "Model status"
+            textSize = 14f
+        }
+
         statusView = TextView(this).apply {
             text = "Checking on-device model…"
-            setPadding(0, padding / 2, 0, padding / 2)
+            textSize = 16f
+            setPadding(0, padding / 4, 0, padding / 2)
         }
 
         downloadProgress = ProgressBar(
@@ -124,6 +131,7 @@ class MainActivity : Activity() {
         }
 
         content.addView(title)
+        content.addView(statusLabel)
         content.addView(statusView)
         content.addView(downloadProgress)
         content.addView(downloadStatusView)
@@ -141,7 +149,17 @@ class MainActivity : Activity() {
         content.addView(benchmarkView)
 
         return ScrollView(this).apply {
+            clipToPadding = false
             addView(content)
+            setOnApplyWindowInsetsListener { view, insets ->
+                view.setPadding(
+                    0,
+                    insets.systemWindowInsetTop,
+                    0,
+                    insets.systemWindowInsetBottom
+                )
+                insets
+            }
         }
     }
 

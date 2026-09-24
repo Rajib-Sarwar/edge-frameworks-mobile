@@ -20,7 +20,7 @@ enum class GeminiNanoAvailability {
 }
 
 sealed interface GeminiNanoDownloadState {
-    data object Started : GeminiNanoDownloadState
+    data class Started(val bytesToDownload: Long) : GeminiNanoDownloadState
     data class Progress(val totalBytesDownloaded: Long) : GeminiNanoDownloadState
     data object Completed : GeminiNanoDownloadState
     data class Failed(val message: String) : GeminiNanoDownloadState
@@ -55,8 +55,10 @@ class GeminiNanoProvider : EdgeModelProvider {
     fun download(): Flow<GeminiNanoDownloadState> {
         return client.download().map { event ->
             when (event) {
-                GeminiNanoDownloadEvent.Started ->
-                    GeminiNanoDownloadState.Started
+                is GeminiNanoDownloadEvent.Started ->
+                    GeminiNanoDownloadState.Started(
+                        bytesToDownload = event.bytesToDownload
+                    )
 
                 is GeminiNanoDownloadEvent.Progress ->
                     GeminiNanoDownloadState.Progress(

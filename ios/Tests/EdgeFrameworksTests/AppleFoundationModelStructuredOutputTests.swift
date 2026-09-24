@@ -25,7 +25,7 @@ private func compileStructuredGenerationCall(
 struct AppleFoundationModelStructuredOutputTests {
     @Test("Structured generation API accepts Generable output types")
     func structuredGenerationAPIAcceptsGenerableTypes() {
-        #expect(true)
+        #expect(Bool(true))
     }
 }
 #endif

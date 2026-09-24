@@ -26,11 +26,21 @@ struct ContentView: View {
                             Text("Run on device")
                         }
                     }
-                    .disabled(
-                        !model.isAvailable ||
-                        model.isRunning ||
-                        model.isBenchmarking
-                    )
+                    .disabled(isBusy)
+
+                    Button {
+                        model.runStructured()
+                    } label: {
+                        if model.isStructuredRunning {
+                            HStack {
+                                ProgressView()
+                                Text("Generating structure…")
+                            }
+                        } else {
+                            Text("Run structured output")
+                        }
+                    }
+                    .disabled(isBusy)
 
                     Button {
                         model.runBenchmark()
@@ -44,11 +54,7 @@ struct ContentView: View {
                             Text("Run benchmark")
                         }
                     }
-                    .disabled(
-                        !model.isAvailable ||
-                        model.isRunning ||
-                        model.isBenchmarking
-                    )
+                    .disabled(isBusy)
                 }
 
                 Section("Response") {
@@ -57,6 +63,13 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         Text(model.output)
+                            .textSelection(.enabled)
+                    }
+                }
+
+                if !model.structuredOutput.isEmpty {
+                    Section("Structured Output") {
+                        Text(model.structuredOutput)
                             .textSelection(.enabled)
                     }
                 }
@@ -71,5 +84,12 @@ struct ContentView: View {
             }
             .navigationTitle("Edge Frameworks")
         }
+    }
+
+    private var isBusy: Bool {
+        !model.isAvailable ||
+        model.isRunning ||
+        model.isStructuredRunning ||
+        model.isBenchmarking
     }
 }

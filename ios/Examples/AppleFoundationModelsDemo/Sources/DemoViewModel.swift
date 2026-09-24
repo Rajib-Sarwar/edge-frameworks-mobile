@@ -1,14 +1,23 @@
 import EdgeFrameworks
 import Foundation
+import FoundationModels
 import UIKit
+
+@Generable
+struct StructuredSummary {
+    let title: String
+    let bullets: [String]
+}
 
 @MainActor
 final class DemoViewModel: ObservableObject {
     @Published var prompt = "Explain on-device AI in three short bullets."
     @Published var output = ""
+    @Published var structuredOutput = ""
     @Published var status = "Checking on-device model…"
     @Published var benchmarkOutput = ""
     @Published var isRunning = false
+    @Published var isStructuredRunning = false
     @Published var isBenchmarking = false
     @Published var isAvailable = false
 
@@ -77,6 +86,50 @@ final class DemoViewModel: ObservableObject {
             } catch {
                 status = "Generation failed."
                 output = String(describing: error)
+            }
+        }
+    }
+
+    func runStructured() {
+        guard
+            #available(iOS 26.0, *),
+            let provider
+        else {
+            return
+        }
+
+        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPrompt.isEmpty else { return }
+
+        isStructuredRunning = true
+        structuredOutput = ""
+        status = "Generating structured output…"
+
+        Task {
+            defer { isStructuredRunning = false }
+
+            do {
+                let result = try await provider.generateStructured(
+                    EdgeGenerationRequest(
+                        prompt: trimmedPrompt,
+                        systemPrompt: "Return a concise title and exactly three short bullets."
+                    ),
+                    as: StructuredSummary.self
+                )
+
+                let bullets = result.bullets
+                    .map { "• \($0)" }
+                    .joined(separator: "\n")
+
+                structuredOutput = """
+                \(result.title)
+
+                \(bullets)
+                """
+                status = "Structured output completed locally."
+            } catch {
+                status = "Structured generation failed."
+                structuredOutput = String(describing: error)
             }
         }
     }

@@ -11,7 +11,7 @@ on:
       - ".github/workflows/android.yml"
 
 jobs:
-  test:
+  android-test:
     runs-on: ubuntu-latest
 
     steps:

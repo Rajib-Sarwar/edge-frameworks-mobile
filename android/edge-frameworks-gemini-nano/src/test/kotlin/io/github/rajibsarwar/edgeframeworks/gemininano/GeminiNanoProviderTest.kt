@@ -3,7 +3,10 @@ package io.github.rajibsarwar.edgeframeworks.gemininano
 import io.github.rajibsarwar.edgeframeworks.EdgeCapability
 import io.github.rajibsarwar.edgeframeworks.EdgeGenerationEvent
 import io.github.rajibsarwar.edgeframeworks.EdgeGenerationRequest
+import io.github.rajibsarwar.edgeframeworks.EdgeGenerationResponse
 import io.github.rajibsarwar.edgeframeworks.EdgeProviderException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -69,6 +72,23 @@ class GeminiNanoProviderTest {
     }
 
     @Test
+    fun generationCancellationMapsToFrameworkError() = runTest {
+        val provider = GeminiNanoProvider(
+            FakeGeminiNanoClient(
+                status = GeminiNanoStatus.AVAILABLE,
+                cancelGeneration = true
+            )
+        )
+
+        try {
+            provider.generate(EdgeGenerationRequest(prompt = "Hello"))
+            throw AssertionError("Expected Cancelled")
+        } catch (_: EdgeProviderException.Cancelled) {
+            // expected
+        }
+    }
+
+    @Test
     fun streamMapsChunksToFrameworkEvents() = runTest {
         val provider = GeminiNanoProvider(
             FakeGeminiNanoClient(
@@ -87,9 +107,7 @@ class GeminiNanoProviderTest {
                 EdgeGenerationEvent.Token("Hello "),
                 EdgeGenerationEvent.Token("from Nano"),
                 EdgeGenerationEvent.Completed(
-                    io.github.rajibsarwar.edgeframeworks.EdgeGenerationResponse(
-                        "Hello from Nano"
-                    )
+                    EdgeGenerationResponse("Hello from Nano")
                 )
             ),
             events
@@ -100,11 +118,24 @@ class GeminiNanoProviderTest {
 private class FakeGeminiNanoClient(
     private val status: GeminiNanoStatus,
     private val generatedText: String = "",
-    private val streamedChunks: List<String> = emptyList()
+    private val streamedChunks: List<String> = emptyList(),
+    private val cancelGeneration: Boolean = false
 ) : GeminiNanoClient {
     override suspend fun status(): GeminiNanoStatus = status
 
-    override suspend fun generate(prompt: String): String = generatedText
+    override suspend fun generate(prompt: String): String {
+        if (cancelGeneration) {
+            throw CancellationException("cancelled")
+        }
 
-    override fun stream(prompt: String) = flowOf(*streamedChunks.toTypedArray())
+        return generatedText
+    }
+
+    override fun stream(prompt: String) = if (cancelGeneration) {
+        flow<String> {
+            throw CancellationException("cancelled")
+        }
+    } else {
+        flowOf(*streamedChunks.toTypedArray())
+    }
 }

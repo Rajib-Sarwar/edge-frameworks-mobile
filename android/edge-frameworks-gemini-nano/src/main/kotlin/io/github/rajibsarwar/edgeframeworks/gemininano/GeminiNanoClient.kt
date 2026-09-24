@@ -14,7 +14,7 @@ internal enum class GeminiNanoStatus {
 }
 
 internal sealed interface GeminiNanoDownloadEvent {
-    data object Started : GeminiNanoDownloadEvent
+    data class Started(val bytesToDownload: Long) : GeminiNanoDownloadEvent
     data class Progress(val totalBytesDownloaded: Long) : GeminiNanoDownloadEvent
     data object Completed : GeminiNanoDownloadEvent
     data class Failed(val message: String) : GeminiNanoDownloadEvent
@@ -45,8 +45,10 @@ internal class MlKitGeminiNanoClient : GeminiNanoClient {
     override fun download(): Flow<GeminiNanoDownloadEvent> {
         return model.download().map { status ->
             when (status) {
-                DownloadStatus.DownloadStarted ->
-                    GeminiNanoDownloadEvent.Started
+                is DownloadStatus.DownloadStarted ->
+                    GeminiNanoDownloadEvent.Started(
+                        bytesToDownload = status.bytesToDownload
+                    )
 
                 is DownloadStatus.DownloadProgress ->
                     GeminiNanoDownloadEvent.Progress(

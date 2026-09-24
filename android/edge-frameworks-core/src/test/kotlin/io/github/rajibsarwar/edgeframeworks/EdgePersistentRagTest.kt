@@ -1,6 +1,7 @@
 package io.github.rajibsarwar.edgeframeworks
 
 import java.io.File
+import kotlin.io.path.createTempDirectory
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -34,9 +35,9 @@ class EdgePersistentRagTest {
 
     @Test
     fun fileVectorStoreSurvivesReopen() = runTest {
-        val directory = createTempDir(
+        val directory = createTempDirectory(
             prefix = "edge-rag-"
-        )
+        ).toFile()
         val file = File(directory, "vectors.bin")
 
         val firstStore = EdgeFileVectorStore(file)

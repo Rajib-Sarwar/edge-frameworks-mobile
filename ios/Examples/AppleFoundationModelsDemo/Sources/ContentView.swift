@@ -26,7 +26,29 @@ struct ContentView: View {
                             Text("Run on device")
                         }
                     }
-                    .disabled(!model.isAvailable || model.isRunning)
+                    .disabled(
+                        !model.isAvailable ||
+                        model.isRunning ||
+                        model.isBenchmarking
+                    )
+
+                    Button {
+                        model.runBenchmark()
+                    } label: {
+                        if model.isBenchmarking {
+                            HStack {
+                                ProgressView()
+                                Text("Benchmarking…")
+                            }
+                        } else {
+                            Text("Run benchmark")
+                        }
+                    }
+                    .disabled(
+                        !model.isAvailable ||
+                        model.isRunning ||
+                        model.isBenchmarking
+                    )
                 }
 
                 Section("Response") {
@@ -35,6 +57,14 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         Text(model.output)
+                            .textSelection(.enabled)
+                    }
+                }
+
+                if !model.benchmarkOutput.isEmpty {
+                    Section("Benchmark") {
+                        Text(model.benchmarkOutput)
+                            .font(.system(.body, design: .monospaced))
                             .textSelection(.enabled)
                     }
                 }

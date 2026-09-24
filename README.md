@@ -107,6 +107,26 @@ The Gemini Nano provider advertises capabilities only when the on-device model i
 
 The provider currently uses ML Kit GenAI Prompt API `1.0.0-beta4` and requires Android API 26 or newer.
 
+## Core tools
+
+Both platforms expose the same provider-neutral tool contract:
+
+| Concept | Swift | Kotlin |
+| --- | --- | --- |
+| Metadata | `EdgeToolDefinition(name:description:inputSchemaJSON:)` | `EdgeToolDefinition(name, description, inputSchemaJson)` |
+| Text result | `EdgeToolResult(content:)` | `EdgeToolResult(content)` |
+| Asynchronous operation | `EdgeTool.call(argumentsJSON:) async throws` | `EdgeTool.call(argumentsJson) suspend` |
+
+Implement `EdgeTool` with a definition and a call method returning `EdgeToolResult`.
+The schema is a JSON Schema string; arguments are JSON-encoded strings. The core
+stores these strings unchanged. Each tool is responsible for decoding and validating
+its arguments and throwing errors on failure. Results can hold plain text or serialized
+JSON. Swift tools must also conform to `Sendable`.
+
+This core contract does not register tools with providers or enable model-driven tool
+calling. Provider adapters, including Apple Foundation Models tool calling, remain
+future work.
+
 ## Example apps
 
 Two small example apps exercise the same framework architecture on each platform:
@@ -188,7 +208,7 @@ edge-frameworks-mobile/
 - [x] Apple Foundation Models structured output
 - [x] structured-output demo flow on iOS
 - [x] compile-time structured-generation coverage
-- [ ] framework-level tool abstraction
+- [x] framework-level tool abstraction
 - [ ] Apple Foundation Models tool calling
 - [ ] local retrieval / RAG foundation
 

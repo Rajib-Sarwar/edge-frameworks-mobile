@@ -13,7 +13,8 @@ public struct AppleFoundationModelProvider: EdgeModelProvider {
         case .available:
             return [
                 .textGeneration,
-                .streaming
+                .streaming,
+                .structuredOutput
             ]
         default:
             return []
@@ -41,6 +42,39 @@ public struct AppleFoundationModelProvider: EdgeModelProvider {
             return EdgeGenerationResponse(
                 text: response.content
             )
+        } catch is CancellationError {
+            throw EdgeProviderError.cancelled
+        } catch let error as EdgeProviderError {
+            throw error
+        } catch {
+            throw EdgeProviderError.providerFailure(
+                providerID: id,
+                message: String(describing: error)
+            )
+        }
+    }
+
+    public func generateStructured<Content: Generable>(
+        _ request: EdgeGenerationRequest,
+        as type: Content.Type = Content.self
+    ) async throws -> Content {
+        guard case .available = SystemLanguageModel.default.availability else {
+            throw EdgeProviderError.providerUnavailable(providerID: id)
+        }
+
+        do {
+            try Task.checkCancellation()
+
+            let session = LanguageModelSession(
+                instructions: request.systemPrompt ?? ""
+            )
+
+            let response = try await session.respond(
+                to: request.prompt,
+                generating: type
+            )
+
+            return response.content
         } catch is CancellationError {
             throw EdgeProviderError.cancelled
         } catch let error as EdgeProviderError {

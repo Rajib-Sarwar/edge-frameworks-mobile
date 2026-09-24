@@ -1,4 +1,5 @@
 #if canImport(FoundationModels)
+import Foundation
 import FoundationModels
 import XCTest
 @testable import EdgeFrameworks
@@ -18,10 +19,19 @@ final class AppleFoundationModelToolAdapterTests: XCTestCase {
 
         let output = try await adapter.call(arguments: arguments)
 
-        XCTAssertEqual(
-            output,
-            #"{"city":"New York","days":2}"#
+        let outputObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: Data(output.utf8)
+            ) as? NSDictionary
         )
+
+        let expectedObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: Data(#"{"city":"New York","days":2}"#.utf8)
+            ) as? NSDictionary
+        )
+
+        XCTAssertEqual(outputObject, expectedObject)
     }
 
     func testAdapterSupportsCommonJSONSchemaTypes() throws {

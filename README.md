@@ -123,9 +123,24 @@ stores these strings unchanged. Each tool is responsible for decoding and valida
 its arguments and throwing errors on failure. Results can hold plain text or serialized
 JSON. Swift tools must also conform to `Sendable`.
 
-This core contract does not register tools with providers or enable model-driven tool
-calling. Provider adapters, including Apple Foundation Models tool calling, remain
-future work.
+The core contract stays provider-neutral. On iOS, `AppleFoundationModelToolAdapter`
+bridges an `EdgeTool` into Apple's Foundation Models `Tool` protocol. The adapter
+currently supports a conservative JSON Schema subset: object, string, integer, number,
+boolean, arrays, required properties, descriptions, and min/max array lengths.
+
+Apple Foundation Models can then call those tools automatically during generation:
+
+```swift
+let response = try await provider.generate(
+    EdgeGenerationRequest(
+        prompt: "Check the weather in New York."
+    ),
+    tools: [weatherTool]
+)
+```
+
+When Apple Foundation Models is available, the provider advertises `.toolCalling`.
+Android tool registration remains provider-specific future work.
 
 ## Example apps
 
@@ -209,7 +224,7 @@ edge-frameworks-mobile/
 - [x] structured-output demo flow on iOS
 - [x] compile-time structured-generation coverage
 - [x] framework-level tool abstraction
-- [ ] Apple Foundation Models tool calling
+- [x] Apple Foundation Models tool calling
 - [ ] local retrieval / RAG foundation
 
 ## Principles

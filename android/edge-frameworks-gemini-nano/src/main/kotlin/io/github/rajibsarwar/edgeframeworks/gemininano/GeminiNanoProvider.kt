@@ -8,6 +8,7 @@ import io.github.rajibsarwar.edgeframeworks.EdgeModelProvider
 import io.github.rajibsarwar.edgeframeworks.EdgeProviderException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 
 class GeminiNanoProvider : EdgeModelProvider {

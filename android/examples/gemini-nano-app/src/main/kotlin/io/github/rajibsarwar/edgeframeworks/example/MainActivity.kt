@@ -1,6 +1,7 @@
 package io.github.rajibsarwar.edgeframeworks.example
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -15,10 +16,12 @@ import io.github.rajibsarwar.edgeframeworks.EdgeAgent
 import io.github.rajibsarwar.edgeframeworks.EdgeBenchmarkRunner
 import io.github.rajibsarwar.edgeframeworks.EdgeGenerationEvent
 import io.github.rajibsarwar.edgeframeworks.EdgeChunk
+import io.github.rajibsarwar.edgeframeworks.EdgeDocument
+import io.github.rajibsarwar.edgeframeworks.EdgeFileVectorStore
 import io.github.rajibsarwar.edgeframeworks.EdgeGenerationRequest
-import io.github.rajibsarwar.edgeframeworks.EdgeInMemoryVectorStore
 import io.github.rajibsarwar.edgeframeworks.EdgeProviderRouter
 import io.github.rajibsarwar.edgeframeworks.EdgeRetriever
+import io.github.rajibsarwar.edgeframeworks.EdgeTextChunker
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoAvailability
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoDownloadState
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoProvider
@@ -28,7 +31,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.Locale
+import java.util.UUID
 
 class MainActivity : Activity() {
     private val scope = MainScope()
@@ -51,12 +56,17 @@ class MainActivity : Activity() {
     private lateinit var ragRetrievedView: TextView
     private lateinit var ragAnswerView: TextView
     private lateinit var ragButton: Button
+    private lateinit var importButton: Button
 
     private var totalDownloadBytes: Long = 0
     private var generationReady = false
     private var ragReady = false
     private var embeddingProvider: MediaPipeTextEmbeddingProvider? = null
     private var ragRetriever: EdgeRetriever? = null
+    private val ragChunker = EdgeTextChunker(
+        maxCharacters = 800,
+        overlapCharacters = 120
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -163,6 +173,12 @@ class MainActivity : Activity() {
             minLines = 2
         }
 
+        importButton = Button(this).apply {
+            text = "Import text document"
+            isEnabled = false
+            setOnClickListener { openDocumentPicker() }
+        }
+
         ragButton = Button(this).apply {
             text = "Ask local knowledge"
             isEnabled = false
@@ -198,6 +214,7 @@ class MainActivity : Activity() {
         content.addView(benchmarkView)
         content.addView(ragLabel)
         content.addView(ragStatusView)
+        content.addView(importButton)
         content.addView(
             ragQuestionView,
             LinearLayout.LayoutParams(
@@ -415,7 +432,12 @@ class MainActivity : Activity() {
                 val embedder = MediaPipeTextEmbeddingProvider(this@MainActivity)
                 val retriever = EdgeRetriever(
                     embeddingProvider = embedder,
-                    vectorStore = EdgeInMemoryVectorStore()
+                    vectorStore = EdgeFileVectorStore(
+                        File(
+                            filesDir,
+                            "edge-frameworks/rag-vectors.bin"
+                        )
+                    )
                 )
 
                 retriever.index(demoChunks)
@@ -424,13 +446,99 @@ class MainActivity : Activity() {
                 ragRetriever = retriever
                 ragReady = true
                 ragStatusView.text =
-                    "Indexed ${demoChunks.size} chunks locally with MediaPipe Text Embedder."
+                    "Local RAG ready · demo knowledge indexed and vectors persist on device."
                 setBusy(false)
             } catch (error: Exception) {
                 ragReady = false
                 ragStatusView.text =
                     "Local embeddings failed: ${error.message ?: error::class.java.simpleName}"
                 setBusy(false)
+            }
+        }
+    }
+
+    private fun openDocumentPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "text/*"
+            putExtra(
+                Intent.EXTRA_MIME_TYPES,
+                arrayOf(
+                    "text/plain",
+                    "text/markdown",
+                    "application/json"
+                )
+            )
+        }
+
+        startActivityForResult(
+            intent,
+            REQUEST_IMPORT_DOCUMENT
+        )
+    }
+
+    @Deprecated("Legacy Activity result API keeps the demo dependency-free.")
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+        super.onActivityResult(
+            requestCode,
+            resultCode,
+            data
+        )
+
+        if (
+            requestCode != REQUEST_IMPORT_DOCUMENT ||
+            resultCode != RESULT_OK
+        ) {
+            return
+        }
+
+        val uri = data?.data ?: return
+
+        scope.launch {
+            try {
+                val text = contentResolver
+                    .openInputStream(uri)
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+                    ?: error("Unable to read selected document")
+
+                val name = uri.lastPathSegment
+                    ?.substringAfterLast('/')
+                    ?: "imported-document"
+
+                val document = EdgeDocument(
+                    id = UUID.randomUUID().toString(),
+                    text = text,
+                    metadata = mapOf(
+                        "source" to name
+                    )
+                )
+
+                val chunks = ragChunker.chunk(document)
+
+                if (chunks.isEmpty()) {
+                    ragStatusView.text =
+                        "Import skipped · document contains no text."
+                    return@launch
+                }
+
+                val retriever = ragRetriever
+                    ?: error("Local RAG is not ready")
+
+                ragStatusView.text =
+                    "Embedding ${chunks.size} imported chunks locally…"
+
+                retriever.index(chunks)
+
+                ragStatusView.text =
+                    "Imported $name · ${chunks.size} chunks persisted locally."
+            } catch (error: Exception) {
+                ragStatusView.text =
+                    "Document import failed: ${error.message ?: error::class.java.simpleName}"
             }
         }
     }
@@ -553,6 +661,7 @@ class MainActivity : Activity() {
         runButton.isEnabled = generationReady && !isBusy
         benchmarkButton.isEnabled = generationReady && !isBusy
         ragButton.isEnabled = generationReady && ragReady && !isBusy
+        importButton.isEnabled = ragReady && !isBusy
     }
 
     private val demoChunks = listOf(
@@ -582,6 +691,10 @@ class MainActivity : Activity() {
             text = "Friday dinner is reserved at an Italian restaurant at 7:00 PM."
         )
     )
+
+    private companion object {
+        const val REQUEST_IMPORT_DOCUMENT = 1001
+    }
 
     private fun format(value: Double): String {
         return String.format(Locale.US, "%.1f", value)

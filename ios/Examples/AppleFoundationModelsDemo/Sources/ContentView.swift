@@ -1,7 +1,9 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var model = DemoViewModel()
+    @State private var isImportingDocument = false
 
     var body: some View {
         NavigationStack {
@@ -86,6 +88,11 @@ struct ContentView: View {
                     Text(model.ragStatus)
                         .foregroundStyle(.secondary)
 
+                    Button("Import text document") {
+                        isImportingDocument = true
+                    }
+                    .disabled(model.isRAGRunning)
+
                     TextField(
                         "Ask local knowledge",
                         text: $model.ragQuestion,
@@ -127,6 +134,26 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("Edge Frameworks")
+            .fileImporter(
+                isPresented: $isImportingDocument,
+                allowedContentTypes: [
+                    .plainText,
+                    .json,
+                    UTType(filenameExtension: "md") ?? .plainText
+                ],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first {
+                        model.importDocument(url: url)
+                    }
+
+                case .failure(let error):
+                    model.ragStatus =
+                        "Document picker failed: \(error.localizedDescription)"
+                }
+            }
         }
     }
 

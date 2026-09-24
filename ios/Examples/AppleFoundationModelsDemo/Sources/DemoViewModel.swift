@@ -31,6 +31,10 @@ final class DemoViewModel: ObservableObject {
     private var agent: EdgeAgent?
     private var provider: AppleFoundationModelProvider?
     private var ragRetriever: EdgeRetriever?
+    private let ragChunker = EdgeTextChunker(
+        maxCharacters: 800,
+        overlapCharacters: 120
+    )
 
     init() {
         configure()
@@ -141,6 +145,61 @@ final class DemoViewModel: ObservableObject {
                 status = "Structured generation failed."
                 structuredOutput = String(describing: error)
             }
+        }
+    }
+
+    func importDocument(url: URL) {
+        let didAccess = url.startAccessingSecurityScopedResource()
+
+        defer {
+            if didAccess {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            let data = try Data(contentsOf: url)
+
+            guard let text = String(
+                data: data,
+                encoding: .utf8
+            ) else {
+                ragStatus = "Import failed · document is not UTF-8 text."
+                return
+            }
+
+            let document = EdgeDocument(
+                id: UUID().uuidString,
+                text: text,
+                metadata: [
+                    "source": url.lastPathComponent
+                ]
+            )
+
+            let chunks = ragChunker.chunk(document)
+
+            guard !chunks.isEmpty else {
+                ragStatus = "Import skipped · document contains no text."
+                return
+            }
+
+            guard let ragRetriever else {
+                ragStatus = "Local RAG is not ready."
+                return
+            }
+
+            ragStatus = "Embedding \(chunks.count) imported chunks locally…"
+
+            Task {
+                do {
+                    try await ragRetriever.index(chunks)
+                    ragStatus = "Imported \(url.lastPathComponent) · \(chunks.count) chunks persisted locally."
+                } catch {
+                    ragStatus = "Document indexing failed: \(error)"
+                }
+            }
+        } catch {
+            ragStatus = "Document import failed: \(error)"
         }
     }
 
@@ -257,7 +316,20 @@ final class DemoViewModel: ObservableObject {
     private func configureLocalRAG() async {
         do {
             let embeddingProvider = try AppleNaturalLanguageEmbeddingProvider()
-            let vectorStore = EdgeInMemoryVectorStore()
+
+            let applicationSupport = try FileManager.default.url(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: true
+            )
+
+            let vectorStore = try EdgeFileVectorStore(
+                fileURL: applicationSupport
+                    .appendingPathComponent("EdgeFrameworks", isDirectory: true)
+                    .appendingPathComponent("rag-vectors.json")
+            )
+
             let retriever = EdgeRetriever(
                 embeddingProvider: embeddingProvider,
                 vectorStore: vectorStore
@@ -266,7 +338,7 @@ final class DemoViewModel: ObservableObject {
             try await retriever.index(Self.demoChunks)
             ragRetriever = retriever
             isRAGReady = true
-            ragStatus = "Indexed \(Self.demoChunks.count) chunks locally."
+            ragStatus = "Local RAG ready · demo knowledge indexed and vector store persists on device."
         } catch {
             isRAGReady = false
             ragStatus = "Local embeddings unavailable: \(error)"

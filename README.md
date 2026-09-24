@@ -214,9 +214,9 @@ the retrieved chunks and similarity scores, and then generates the final answer 
 that retrieved context with Apple Foundation Models. No network service or cloud vector
 database is required for this flow.
 
-This is still a demo-scale RAG implementation: the vector store is in memory and the
-knowledge set is predefined. Persistent storage, document import/chunking, and larger
-embedding backends remain future work.
+The iOS demo now persists vector data in Application Support and can import UTF-8 text,
+Markdown, and JSON documents through the system document picker. Larger embedding
+backends and richer document parsers remain future work.
 
 ## Android local RAG demo
 
@@ -247,9 +247,51 @@ The Android example mirrors the iOS demo: it indexes the same small local knowle
 accepts a question, displays the top retrieved chunks with similarity scores, and passes
 only that retrieved context to Gemini Nano for the final response.
 
-The current Android vector store is still in memory and the demo knowledge set is
-predefined. The embedding model is packaged with the app during the build rather than
-downloaded by the runtime RAG code.
+The Android demo now persists vector data to app-local storage and can import UTF-8
+text, Markdown, and JSON documents from the system document picker. The embedding model
+is packaged with the app during the build rather than downloaded by the runtime RAG
+code.
+
+## Document import, chunking, and persistence
+
+The local RAG layer now includes portable document chunking and persistent vector
+storage on both platforms.
+
+```text
+Imported text document
+        ↓
+EdgeDocument
+        ↓
+EdgeTextChunker
+        ↓
+EdgeChunk[]
+        ↓
+EdgeRetriever
+        ↓
+on-device embeddings
+        ↓
+EdgeFileVectorStore
+        ↓
+persistent local semantic search
+```
+
+`EdgeTextChunker` splits a document into overlapping, deterministic text windows and
+preserves document metadata such as the source filename and chunk index. The default
+configuration uses 800 characters per chunk with 120 characters of overlap, and can be
+customized per app.
+
+`EdgeFileVectorStore` persists chunks and their embedding vectors to app-local storage.
+The iOS implementation uses an atomically written JSON file; Android uses a compact
+binary file with an atomic temp-file replacement. Reopening the store restores the
+previously indexed vectors, so imported knowledge survives app restarts.
+
+`EdgeRetriever` can now index either prebuilt chunks or an `EdgeDocument` together
+with an `EdgeTextChunker`.
+
+The example apps add a native document picker for UTF-8 text-like files:
+plain text, Markdown, and JSON. Imported content is chunked, embedded on-device, and
+persisted in the local vector store. PDF, Word, OCR, and richer document parsers are not
+part of this slice yet.
 
 ## Example apps
 
@@ -339,6 +381,8 @@ edge-frameworks-mobile/
 - [x] local retrieval / RAG foundation
 - [x] iOS on-device embeddings + local RAG demo
 - [x] Android on-device embeddings + local RAG demo
+- [x] document import + chunking
+- [x] persistent local vector storage
 
 ## Principles
 

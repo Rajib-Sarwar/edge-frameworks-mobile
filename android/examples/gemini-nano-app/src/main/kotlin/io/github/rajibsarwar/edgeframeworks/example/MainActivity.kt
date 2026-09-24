@@ -14,11 +14,15 @@ import android.widget.TextView
 import io.github.rajibsarwar.edgeframeworks.EdgeAgent
 import io.github.rajibsarwar.edgeframeworks.EdgeBenchmarkRunner
 import io.github.rajibsarwar.edgeframeworks.EdgeGenerationEvent
+import io.github.rajibsarwar.edgeframeworks.EdgeChunk
 import io.github.rajibsarwar.edgeframeworks.EdgeGenerationRequest
+import io.github.rajibsarwar.edgeframeworks.EdgeInMemoryVectorStore
 import io.github.rajibsarwar.edgeframeworks.EdgeProviderRouter
+import io.github.rajibsarwar.edgeframeworks.EdgeRetriever
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoAvailability
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoDownloadState
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoProvider
+import io.github.rajibsarwar.edgeframeworks.mediapipe.MediaPipeTextEmbeddingProvider
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -42,16 +46,28 @@ class MainActivity : Activity() {
     private lateinit var benchmarkButton: Button
     private lateinit var downloadButton: Button
     private lateinit var downloadProgress: ProgressBar
+    private lateinit var ragQuestionView: EditText
+    private lateinit var ragStatusView: TextView
+    private lateinit var ragRetrievedView: TextView
+    private lateinit var ragAnswerView: TextView
+    private lateinit var ragButton: Button
+
     private var totalDownloadBytes: Long = 0
+    private var generationReady = false
+    private var ragReady = false
+    private var embeddingProvider: MediaPipeTextEmbeddingProvider? = null
+    private var ragRetriever: EdgeRetriever? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         actionBar?.hide()
         setContentView(buildContentView())
+        prepareLocalRag()
         refreshAvailability()
     }
 
     override fun onDestroy() {
+        embeddingProvider?.close()
         scope.cancel()
         super.onDestroy()
     }
@@ -130,6 +146,39 @@ class MainActivity : Activity() {
             setPadding(0, padding, 0, 0)
         }
 
+        val ragLabel = TextView(this).apply {
+            text = "Local RAG"
+            textSize = 18f
+            setPadding(0, padding, 0, padding / 4)
+        }
+
+        ragStatusView = TextView(this).apply {
+            text = "Preparing on-device embeddings…"
+            textSize = 15f
+        }
+
+        ragQuestionView = EditText(this).apply {
+            hint = "Ask local knowledge"
+            setText("When does my Tokyo flight leave?")
+            minLines = 2
+        }
+
+        ragButton = Button(this).apply {
+            text = "Ask local knowledge"
+            isEnabled = false
+            setOnClickListener { runLocalRag() }
+        }
+
+        ragRetrievedView = TextView(this).apply {
+            textSize = 14f
+            setPadding(0, padding / 2, 0, 0)
+        }
+
+        ragAnswerView = TextView(this).apply {
+            textSize = 16f
+            setPadding(0, padding / 2, 0, 0)
+        }
+
         content.addView(title)
         content.addView(statusLabel)
         content.addView(statusView)
@@ -147,6 +196,18 @@ class MainActivity : Activity() {
         content.addView(benchmarkButton)
         content.addView(outputView)
         content.addView(benchmarkView)
+        content.addView(ragLabel)
+        content.addView(ragStatusView)
+        content.addView(
+            ragQuestionView,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+        content.addView(ragButton)
+        content.addView(ragRetrievedView)
+        content.addView(ragAnswerView)
 
         return ScrollView(this).apply {
             clipToPadding = false
@@ -192,6 +253,7 @@ class MainActivity : Activity() {
                 }
 
                 GeminiNanoAvailability.UNAVAILABLE -> {
+                    generationReady = false
                     statusView.text =
                         "Gemini Nano: UNAVAILABLE · ML Kit reports the Prompt API is not available on this device/configuration."
                     downloadButton.visibility = View.GONE
@@ -297,14 +359,14 @@ class MainActivity : Activity() {
     }
 
     private fun showReady() {
+        generationReady = true
         statusView.text =
             "Gemini Nano: AVAILABLE · ready for local generation."
         downloadProgress.progress = 100
         downloadProgress.visibility = View.GONE
         downloadStatusView.visibility = View.GONE
         downloadButton.visibility = View.GONE
-        runButton.isEnabled = true
-        benchmarkButton.isEnabled = true
+        setBusy(false)
     }
 
     private fun generate() {
@@ -340,6 +402,97 @@ class MainActivity : Activity() {
             } catch (error: Exception) {
                 statusView.text = "Generation failed."
                 outputView.text =
+                    error.message ?: error::class.java.simpleName
+            } finally {
+                setBusy(false)
+            }
+        }
+    }
+
+    private fun prepareLocalRag() {
+        scope.launch {
+            try {
+                val embedder = MediaPipeTextEmbeddingProvider(this@MainActivity)
+                val retriever = EdgeRetriever(
+                    embeddingProvider = embedder,
+                    vectorStore = EdgeInMemoryVectorStore()
+                )
+
+                retriever.index(demoChunks)
+
+                embeddingProvider = embedder
+                ragRetriever = retriever
+                ragReady = true
+                ragStatusView.text =
+                    "Indexed ${demoChunks.size} chunks locally with MediaPipe Text Embedder."
+                setBusy(false)
+            } catch (error: Exception) {
+                ragReady = false
+                ragStatusView.text =
+                    "Local embeddings failed: ${error.message ?: error::class.java.simpleName}"
+                setBusy(false)
+            }
+        }
+    }
+
+    private fun runLocalRag() {
+        val question = ragQuestionView.text.toString().trim()
+        val retriever = ragRetriever ?: return
+
+        if (question.isEmpty() || !generationReady) return
+
+        setBusy(true)
+        ragRetrievedView.text = ""
+        ragAnswerView.text = ""
+        ragStatusView.text = "Retrieving relevant chunks locally…"
+
+        scope.launch {
+            try {
+                val results = retriever.retrieve(
+                    query = question,
+                    topK = 3
+                )
+
+                ragRetrievedView.text = results
+                    .mapIndexed { index, result ->
+                        val score = String.format(
+                            Locale.US,
+                            "%.3f",
+                            result.score
+                        )
+                        "${index + 1}. [$score] ${result.chunk.text}"
+                    }
+                    .joinToString("\n\n")
+
+                val context = results
+                    .joinToString("\n") { it.chunk.text }
+
+                ragStatusView.text =
+                    "Generating answer with Gemini Nano from retrieved context…"
+
+                val response = provider.generate(
+                    EdgeGenerationRequest(
+                        prompt = """
+                            Local context:
+                            $context
+
+                            Question:
+                            $question
+                        """.trimIndent(),
+                        systemPrompt = """
+                            Answer using only the supplied local context.
+                            If the answer is not present, say the local knowledge
+                            does not contain enough information.
+                        """.trimIndent()
+                    )
+                )
+
+                ragAnswerView.text = response.text
+                ragStatusView.text =
+                    "RAG completed locally · embeddings + retrieval + generation stayed on device."
+            } catch (error: Exception) {
+                ragStatusView.text = "Local RAG failed."
+                ragAnswerView.text =
                     error.message ?: error::class.java.simpleName
             } finally {
                 setBusy(false)
@@ -397,9 +550,38 @@ class MainActivity : Activity() {
     }
 
     private fun setBusy(isBusy: Boolean) {
-        runButton.isEnabled = !isBusy
-        benchmarkButton.isEnabled = !isBusy
+        runButton.isEnabled = generationReady && !isBusy
+        benchmarkButton.isEnabled = generationReady && !isBusy
+        ragButton.isEnabled = generationReady && ragReady && !isBusy
     }
+
+    private val demoChunks = listOf(
+        EdgeChunk(
+            id = "travel-flight",
+            documentId = "travel-notes",
+            text = "Our flight to Tokyo leaves Newark on October 12 at 9:30 AM."
+        ),
+        EdgeChunk(
+            id = "travel-hotel",
+            documentId = "travel-notes",
+            text = "We are staying at the Shinagawa Prince Hotel in Tokyo for four nights."
+        ),
+        EdgeChunk(
+            id = "travel-train",
+            documentId = "travel-notes",
+            text = "The airport train reservation is for the Narita Express after landing."
+        ),
+        EdgeChunk(
+            id = "insurance",
+            documentId = "personal-notes",
+            text = "The new insurance coverage begins on November 1."
+        ),
+        EdgeChunk(
+            id = "dinner",
+            documentId = "personal-notes",
+            text = "Friday dinner is reserved at an Italian restaurant at 7:00 PM."
+        )
+    )
 
     private fun format(value: Double): String {
         return String.format(Locale.US, "%.1f", value)

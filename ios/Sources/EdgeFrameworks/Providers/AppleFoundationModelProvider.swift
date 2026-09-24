@@ -14,7 +14,8 @@ public struct AppleFoundationModelProvider: EdgeModelProvider {
             return [
                 .textGeneration,
                 .streaming,
-                .structuredOutput
+                .structuredOutput,
+                .toolCalling
             ]
         default:
             return []
@@ -32,6 +33,45 @@ public struct AppleFoundationModelProvider: EdgeModelProvider {
             try Task.checkCancellation()
 
             let session = LanguageModelSession(
+                instructions: request.systemPrompt ?? ""
+            )
+
+            let response = try await session.respond(
+                to: request.prompt
+            )
+
+            return EdgeGenerationResponse(
+                text: response.content
+            )
+        } catch is CancellationError {
+            throw EdgeProviderError.cancelled
+        } catch let error as EdgeProviderError {
+            throw error
+        } catch {
+            throw EdgeProviderError.providerFailure(
+                providerID: id,
+                message: String(describing: error)
+            )
+        }
+    }
+
+    public func generate(
+        _ request: EdgeGenerationRequest,
+        tools: [any EdgeTool]
+    ) async throws -> EdgeGenerationResponse {
+        guard case .available = SystemLanguageModel.default.availability else {
+            throw EdgeProviderError.providerUnavailable(providerID: id)
+        }
+
+        do {
+            try Task.checkCancellation()
+
+            let adapters: [any Tool] = try tools.map {
+                try AppleFoundationModelToolAdapter(tool: $0)
+            }
+
+            let session = LanguageModelSession(
+                tools: adapters,
                 instructions: request.systemPrompt ?? ""
             )
 

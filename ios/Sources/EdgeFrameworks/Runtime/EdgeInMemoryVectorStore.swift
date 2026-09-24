@@ -13,7 +13,7 @@ public actor EdgeInMemoryVectorStore: EdgeVectorStore {
         embeddings: [EdgeEmbedding]
     ) async throws {
         guard chunks.count == embeddings.count else {
-            throw EdgeVectorError.dimensionMismatch(
+            throw EdgeVectorError.countMismatch(
                 expected: chunks.count,
                 actual: embeddings.count
             )

@@ -17,7 +17,7 @@ public struct AppleFoundationModelProvider: EdgeModelProvider {
                 .structuredOutput,
                 .toolCalling
             ]
-        case .unavailable:
+        default:
             return []
         }
     }
@@ -25,17 +25,34 @@ public struct AppleFoundationModelProvider: EdgeModelProvider {
     public func generate(
         _ request: EdgeGenerationRequest
     ) async throws -> EdgeGenerationResponse {
-        let session = LanguageModelSession(
-            instructions: request.systemPrompt ?? ""
-        )
+        guard case .available = SystemLanguageModel.default.availability else {
+            throw EdgeProviderError.providerUnavailable(providerID: id)
+        }
 
-        let response = try await session.respond(
-            to: request.prompt
-        )
+        do {
+            try Task.checkCancellation()
 
-        return EdgeGenerationResponse(
-            text: response.content
-        )
+            let session = LanguageModelSession(
+                instructions: request.systemPrompt ?? ""
+            )
+
+            let response = try await session.respond(
+                to: request.prompt
+            )
+
+            return EdgeGenerationResponse(
+                text: response.content
+            )
+        } catch is CancellationError {
+            throw EdgeProviderError.cancelled
+        } catch let error as EdgeProviderError {
+            throw error
+        } catch {
+            throw EdgeProviderError.providerFailure(
+                providerID: id,
+                message: String(describing: error)
+            )
+        }
     }
 
     public func stream(
@@ -43,7 +60,17 @@ public struct AppleFoundationModelProvider: EdgeModelProvider {
     ) -> AsyncThrowingStream<EdgeGenerationEvent, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
+                guard case .available = SystemLanguageModel.default.availability else {
+                    continuation.finish(
+                        throwing: EdgeProviderError.providerUnavailable(
+                            providerID: id
+                        )
+                    )
+                    return
+                }
+
                 do {
+                    try Task.checkCancellation()
                     continuation.yield(.started)
 
                     let session = LanguageModelSession(
@@ -55,6 +82,8 @@ public struct AppleFoundationModelProvider: EdgeModelProvider {
                     for try await snapshot in session.streamResponse(
                         to: request.prompt
                     ) {
+                        try Task.checkCancellation()
+
                         let current = snapshot.content
 
                         if current.hasPrefix(previous) {
@@ -78,8 +107,19 @@ public struct AppleFoundationModelProvider: EdgeModelProvider {
                         )
                     )
                     continuation.finish()
-                } catch {
+                } catch is CancellationError {
+                    continuation.finish(
+                        throwing: EdgeProviderError.cancelled
+                    )
+                } catch let error as EdgeProviderError {
                     continuation.finish(throwing: error)
+                } catch {
+                    continuation.finish(
+                        throwing: EdgeProviderError.providerFailure(
+                            providerID: id,
+                            message: String(describing: error)
+                        )
+                    )
                 }
             }
 

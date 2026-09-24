@@ -186,6 +186,41 @@ A future demo will index a small local document set, show the retrieved chunks a
 similarity scores, then pass those chunks to an on-device language model to answer
 questions with zero network requests.
 
+## iOS local RAG demo
+
+The iOS package now includes `AppleNaturalLanguageEmbeddingProvider`, backed by
+Apple's built-in Natural Language sentence embeddings. It implements the shared
+`EdgeEmbeddingProvider` contract and produces vectors entirely on-device. Apple
+documents `NLEmbedding.sentenceEmbedding(for:)` for retrieving sentence embeddings
+and `vector(for:)` for obtaining the vector for a string.
+
+The example app demonstrates the full local retrieval path:
+
+```text
+Local chunks
+   ↓
+Apple Natural Language sentence embeddings
+   ↓
+EdgeInMemoryVectorStore
+   ↓
+cosine similarity / top-K retrieval
+   ↓
+retrieved context
+   ↓
+Apple Foundation Models
+   ↓
+answer
+```
+
+The demo indexes a small local knowledge set in memory, lets you ask a question, shows
+the retrieved chunks and similarity scores, and then generates the final answer from
+that retrieved context with Apple Foundation Models. No network service or cloud vector
+database is required for this flow.
+
+This is still a demo-scale RAG implementation: the vector store is in memory and the
+knowledge set is predefined. Persistent storage, document import/chunking, and larger
+embedding backends remain future work.
+
 ## Example apps
 
 Two small example apps exercise the same framework architecture on each platform:
@@ -193,7 +228,7 @@ Two small example apps exercise the same framework architecture on each platform
 - [iOS · Apple Foundation Models](ios/Examples/AppleFoundationModelsDemo)
 - [Android · Gemini Nano](android/examples/gemini-nano-app)
 
-Both examples include runtime capability checks, provider routing, streaming generation, and framework-level error handling. The iOS example also includes a typed structured-output flow. Their build paths are covered by CI.
+Both examples include runtime capability checks, provider routing, streaming generation, and framework-level error handling. The iOS example also includes typed structured output, Apple tool calling support in the framework, and an end-to-end local RAG flow using Apple Natural Language sentence embeddings. Their build paths are covered by CI.
 
 ## Running the examples
 

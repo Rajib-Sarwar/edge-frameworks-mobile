@@ -1,3 +1,4 @@
+import java.net.URI
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -57,7 +58,7 @@ val downloadEmbeddingModel by tasks.registering {
         target.parentFile.mkdirs()
 
         if (!target.exists()) {
-            java.net.URI(embeddingModelUrl)
+            URI(embeddingModelUrl)
                 .toURL()
                 .openStream()
                 .use { input ->

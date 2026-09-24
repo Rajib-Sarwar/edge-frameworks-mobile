@@ -53,5 +53,6 @@ public struct EdgeSearchResult: Equatable, Sendable {
 
 public enum EdgeVectorError: Error, Equatable, Sendable {
     case dimensionMismatch(expected: Int, actual: Int)
+    case countMismatch(expected: Int, actual: Int)
     case zeroMagnitude
 }

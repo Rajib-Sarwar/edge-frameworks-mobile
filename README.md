@@ -2,7 +2,7 @@
 
 Local-first AI infrastructure for building native mobile experiences across iOS and Android.
 
-> Status: early development. APIs will change quickly until the first tagged release.
+> Status: v0.1.0 is released. v0.2.0 development is in progress.
 
 ## Why this exists
 
@@ -56,6 +56,37 @@ if #available(iOS 26.0, *) {
 }
 ```
 
+### iOS structured output
+
+Apple Foundation Models supports typed guided generation through `@Generable`.
+
+```swift
+import EdgeFrameworks
+import FoundationModels
+
+@Generable
+struct Summary {
+    let title: String
+    let bullets: [String]
+}
+
+if #available(iOS 26.0, *) {
+    let provider = AppleFoundationModelProvider()
+
+    let summary = try await provider.generateStructured(
+        EdgeGenerationRequest(
+            prompt: "Explain on-device AI in three short bullets."
+        ),
+        as: Summary.self
+    )
+
+    print(summary.title)
+    print(summary.bullets)
+}
+```
+
+When Apple Foundation Models is available, the provider advertises `.structuredOutput` in addition to text generation and streaming.
+
 ### Android
 
 ```kotlin
@@ -83,7 +114,7 @@ Two small example apps exercise the same framework architecture on each platform
 - [iOS · Apple Foundation Models](ios/Examples/AppleFoundationModelsDemo)
 - [Android · Gemini Nano](android/examples/gemini-nano-app)
 
-Both examples include runtime capability checks, provider routing, streaming generation, and framework-level error handling. Their build paths are covered by CI.
+Both examples include runtime capability checks, provider routing, streaming generation, and framework-level error handling. The iOS example also includes a typed structured-output flow. Their build paths are covered by CI.
 
 ## Running the examples
 
@@ -151,6 +182,15 @@ edge-frameworks-mobile/
 - [x] add one provider per platform
 - [x] add example apps
 - [x] add baseline latency and memory benchmarks
+
+## v0.2 progress
+
+- [x] Apple Foundation Models structured output
+- [x] structured-output demo flow on iOS
+- [x] compile-time structured-generation coverage
+- [ ] framework-level tool abstraction
+- [ ] Apple Foundation Models tool calling
+- [ ] local retrieval / RAG foundation
 
 ## Principles
 

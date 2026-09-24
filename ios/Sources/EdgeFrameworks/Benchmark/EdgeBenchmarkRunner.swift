@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(Darwin)
+import Darwin
+#endif
+
 public struct EdgeBenchmarkSample: Sendable, Equatable {
     public let latencyMilliseconds: Double
     public let memoryDeltaBytes: Int64
@@ -57,7 +61,7 @@ public struct EdgeBenchmarkRunner: Sendable {
 
             _ = try await provider.generate(request)
 
-            let duration = start.duration(to: .now)
+            let duration = start.duration(to: ContinuousClock.now)
             let memoryAfter = currentResidentMemoryBytes()
 
             samples.append(

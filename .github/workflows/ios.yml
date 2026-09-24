@@ -24,3 +24,21 @@ jobs:
       - name: Run Swift tests
         working-directory: ios
         run: swift test
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate iOS example project
+        working-directory: ios/Examples/AppleFoundationModelsDemo
+        run: xcodegen generate
+
+      - name: Build iOS example
+        working-directory: ios/Examples/AppleFoundationModelsDemo
+        run: |
+          xcodebuild \
+            -project AppleFoundationModelsDemo.xcodeproj \
+            -scheme AppleFoundationModelsDemo \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build

@@ -76,16 +76,28 @@ The Gemini Nano provider advertises capabilities only when the on-device model i
 
 The provider currently uses ML Kit GenAI Prompt API `1.0.0-beta4` and requires Android API 26 or newer.
 
+## Example apps
+
+Two small example apps exercise the same framework architecture on each platform:
+
+- [iOS · Apple Foundation Models](ios/Examples/AppleFoundationModelsDemo)
+- [Android · Gemini Nano](android/examples/gemini-nano-app)
+
+Both examples include runtime capability checks, provider routing, streaming generation, and framework-level error handling. Their build paths are covered by CI.
+
 ## Repository shape
 
 ```text
 edge-frameworks-mobile/
 ├── ios/
+│   └── Examples/
+│       └── AppleFoundationModelsDemo/
 ├── android/
 │   ├── edge-frameworks-core/
-│   └── edge-frameworks-gemini-nano/
+│   ├── edge-frameworks-gemini-nano/
+│   └── examples/
+│       └── gemini-nano-app/
 ├── docs/
-├── examples/
 ├── benchmarks/
 └── .github/
 ```
@@ -96,7 +108,7 @@ edge-frameworks-mobile/
 - [x] ship minimal Swift and Kotlin packages
 - [x] support streaming and cancellation
 - [x] add one provider per platform
-- [ ] add example apps
+- [x] add example apps
 - [ ] add baseline latency and memory benchmarks
 
 ## Principles

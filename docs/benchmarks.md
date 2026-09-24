@@ -18,7 +18,7 @@ The current memory metric is intentionally lightweight:
 - iOS samples process resident memory before and after each request.
 - Android samples JVM heap usage before and after each request.
 
-These values are useful for regressions and relative comparisons, but they are not a complete measurement of accelerator, model-cache, or system-wide memory use.
+These values are useful for regressions and relative comparisons, but they are not a complete measurement of accelerator, model-cache, or system-wide memory use. The iOS and Android memory numbers also come from different measurement mechanisms, so they should not be treated as directly comparable cross-platform memory usage.
 
 ## Recommended device protocol
 
@@ -40,6 +40,25 @@ For publishable provider baselines:
 ```text
 Explain on-device AI in three short bullets.
 ```
+
+## Physical-device baselines
+
+These are provider baselines captured from the example apps on physical hardware. They are useful for tracking framework/provider behavior on known devices; they are not intended as a universal ranking of platform or model performance.
+
+| Platform | Device | OS | Provider | Iterations | Avg latency | P50 | P95 | Avg memory delta |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| iOS | iPhone 17 Pro Max | iOS 27.0 | `apple.foundation-models` | 10 | 908.4 ms | 884.7 ms | 1,106.3 ms | ~0.00 MB |
+| Android | Samsung Galaxy Z Fold7 (SM-F966U) | Android 16 | `google.gemini-nano` | 10 | 4,493.0 ms | 4,473.4 ms | 4,608.9 ms | 0.1 MB |
+
+Test prompt:
+
+```text
+Explain on-device AI in three short bullets.
+```
+
+Each baseline used one unmeasured warm-up request followed by 10 measured requests. Power-mode state was not recorded for these first baselines.
+
+The iOS example currently reports the generic hardware family name (`iPhone`) from `UIDevice.current.model`; the specific iPhone 17 Pro Max model above was recorded from the physical test device metadata.
 
 ## Swift
 

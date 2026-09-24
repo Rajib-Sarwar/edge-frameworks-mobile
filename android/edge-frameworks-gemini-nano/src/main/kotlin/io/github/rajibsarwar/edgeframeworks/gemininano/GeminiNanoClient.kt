@@ -1,5 +1,6 @@
 package io.github.rajibsarwar.edgeframeworks.gemininano
 
+import com.google.mlkit.genai.common.DownloadStatus
 import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.prompt.Generation
 import kotlinx.coroutines.flow.Flow
@@ -12,8 +13,17 @@ internal enum class GeminiNanoStatus {
     UNAVAILABLE
 }
 
+internal sealed interface GeminiNanoDownloadEvent {
+    data object Started : GeminiNanoDownloadEvent
+    data class Progress(val totalBytesDownloaded: Long) : GeminiNanoDownloadEvent
+    data object Completed : GeminiNanoDownloadEvent
+    data class Failed(val message: String) : GeminiNanoDownloadEvent
+}
+
 internal interface GeminiNanoClient {
     suspend fun status(): GeminiNanoStatus
+
+    fun download(): Flow<GeminiNanoDownloadEvent>
 
     suspend fun generate(prompt: String): String
 
@@ -29,6 +39,28 @@ internal class MlKitGeminiNanoClient : GeminiNanoClient {
             FeatureStatus.DOWNLOADABLE -> GeminiNanoStatus.DOWNLOADABLE
             FeatureStatus.DOWNLOADING -> GeminiNanoStatus.DOWNLOADING
             else -> GeminiNanoStatus.UNAVAILABLE
+        }
+    }
+
+    override fun download(): Flow<GeminiNanoDownloadEvent> {
+        return model.download().map { status ->
+            when (status) {
+                DownloadStatus.DownloadStarted ->
+                    GeminiNanoDownloadEvent.Started
+
+                is DownloadStatus.DownloadProgress ->
+                    GeminiNanoDownloadEvent.Progress(
+                        totalBytesDownloaded = status.totalBytesDownloaded
+                    )
+
+                DownloadStatus.DownloadCompleted ->
+                    GeminiNanoDownloadEvent.Completed
+
+                is DownloadStatus.DownloadFailed ->
+                    GeminiNanoDownloadEvent.Failed(
+                        status.e.message ?: status.e::class.java.simpleName
+                    )
+            }
         }
     }
 

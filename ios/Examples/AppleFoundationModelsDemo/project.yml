@@ -1,0 +1,27 @@
+name: AppleFoundationModelsDemo
+
+options:
+  bundleIdPrefix: io.github.rajibsarwar.edgeframeworks
+  deploymentTarget:
+    iOS: "26.0"
+
+packages:
+  EdgeFrameworks:
+    path: ../..
+
+targets:
+  AppleFoundationModelsDemo:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.rajibsarwar.edgeframeworks.demo
+        SWIFT_VERSION: 6.0
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    dependencies:
+      - package: EdgeFrameworks
+        product: EdgeFrameworks

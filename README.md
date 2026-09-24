@@ -178,13 +178,10 @@ top-K relevant chunks
 retrieves the most relevant chunks for a query. The in-memory vector store ranks
 results with cosine similarity and replaces existing entries by chunk identifier.
 
-This milestone defines the local RAG architecture only. It does **not** yet ship a
-real Core ML, MLX, or Android embedding model, persistent vector database, document
-parser, or automatic prompt augmentation. Those are the next provider and demo layers.
-
-A future demo will index a small local document set, show the retrieved chunks and
-similarity scores, then pass those chunks to an on-device language model to answer
-questions with zero network requests.
+The core remains provider-neutral. Real embedding backends now plug into this
+contract on both platforms: Apple Natural Language on iOS and MediaPipe Text Embedder
+on Android. Persistent vector storage, document parsing/chunking, and automatic prompt
+augmentation remain future layers.
 
 ## iOS local RAG demo
 
@@ -221,6 +218,39 @@ This is still a demo-scale RAG implementation: the vector store is in memory and
 knowledge set is predefined. Persistent storage, document import/chunking, and larger
 embedding backends remain future work.
 
+## Android local RAG demo
+
+Android now includes `MediaPipeTextEmbeddingProvider`, a reusable
+`EdgeEmbeddingProvider` backed by Google AI Edge MediaPipe Text Embedder. The demo
+uses the Universal Sentence Encoder model from Google's published MediaPipe model
+assets. The Gradle build downloads that model into generated app assets; once the app
+and required Gemini Nano model are present on the device, embedding, retrieval, and
+generation run locally.
+
+```text
+Local chunks
+   ↓
+MediaPipe Text Embedder / Universal Sentence Encoder
+   ↓
+EdgeInMemoryVectorStore
+   ↓
+cosine similarity / top-K retrieval
+   ↓
+retrieved context
+   ↓
+Gemini Nano through ML Kit Prompt API
+   ↓
+answer
+```
+
+The Android example mirrors the iOS demo: it indexes the same small local knowledge set,
+accepts a question, displays the top retrieved chunks with similarity scores, and passes
+only that retrieved context to Gemini Nano for the final response.
+
+The current Android vector store is still in memory and the demo knowledge set is
+predefined. The embedding model is packaged with the app during the build rather than
+downloaded by the runtime RAG code.
+
 ## Example apps
 
 Two small example apps exercise the same framework architecture on each platform:
@@ -228,7 +258,7 @@ Two small example apps exercise the same framework architecture on each platform
 - [iOS · Apple Foundation Models](ios/Examples/AppleFoundationModelsDemo)
 - [Android · Gemini Nano](android/examples/gemini-nano-app)
 
-Both examples include runtime capability checks, provider routing, streaming generation, and framework-level error handling. The iOS example also includes typed structured output, Apple tool calling support in the framework, and an end-to-end local RAG flow using Apple Natural Language sentence embeddings. Their build paths are covered by CI.
+Both examples include runtime capability checks, provider routing, streaming generation, framework-level error handling, and end-to-end local RAG demos. iOS uses Apple Natural Language sentence embeddings with Apple Foundation Models; Android uses MediaPipe Text Embedder with Gemini Nano. The iOS example also includes typed structured output, and the framework supports Apple tool calling. Their build paths are covered by CI.
 
 ## Running the examples
 
@@ -266,6 +296,7 @@ Requirements:
 
 - Android API 26 or newer
 - Gemini Nano / ML Kit GenAI available on the device
+- First Gradle build needs network access to fetch the Universal Sentence Encoder model asset
 
 ## Benchmarks
 
@@ -281,6 +312,7 @@ edge-frameworks-mobile/
 ├── android/
 │   ├── edge-frameworks-core/
 │   ├── edge-frameworks-gemini-nano/
+│   ├── edge-frameworks-mediapipe-embeddings/
 │   └── examples/
 │       └── gemini-nano-app/
 ├── docs/
@@ -305,6 +337,8 @@ edge-frameworks-mobile/
 - [x] framework-level tool abstraction
 - [x] Apple Foundation Models tool calling
 - [x] local retrieval / RAG foundation
+- [x] iOS on-device embeddings + local RAG demo
+- [x] Android on-device embeddings + local RAG demo
 
 ## Principles
 

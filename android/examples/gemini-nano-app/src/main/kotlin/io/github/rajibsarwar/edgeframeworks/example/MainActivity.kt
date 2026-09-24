@@ -42,6 +42,7 @@ class MainActivity : Activity() {
     private lateinit var benchmarkButton: Button
     private lateinit var downloadButton: Button
     private lateinit var downloadProgress: ProgressBar
+    private var totalDownloadBytes: Long = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,8 +73,13 @@ class MainActivity : Activity() {
             setPadding(0, padding / 2, 0, padding / 2)
         }
 
-        downloadProgress = ProgressBar(this).apply {
-            isIndeterminate = true
+        downloadProgress = ProgressBar(
+            this,
+            null,
+            android.R.attr.progressBarStyleHorizontal
+        ).apply {
+            max = 100
+            progress = 0
             visibility = View.GONE
         }
 
@@ -194,13 +200,26 @@ class MainActivity : Activity() {
             try {
                 provider.download().collect { state ->
                     when (state) {
-                        GeminiNanoDownloadState.Started -> {
-                            downloadStatusView.text = "Download started…"
+                        is GeminiNanoDownloadState.Started -> {
+                            totalDownloadBytes = state.bytesToDownload
+                            downloadProgress.progress = 0
+                            downloadStatusView.text =
+                                "Download started · ${formatBytes(state.bytesToDownload)} total"
                         }
 
                         is GeminiNanoDownloadState.Progress -> {
+                            val percent = if (totalDownloadBytes > 0) {
+                                (
+                                    state.totalBytesDownloaded * 100 /
+                                        totalDownloadBytes
+                                    ).toInt().coerceIn(0, 100)
+                            } else {
+                                0
+                            }
+
+                            downloadProgress.progress = percent
                             downloadStatusView.text =
-                                "Downloaded ${formatBytes(state.totalBytesDownloaded)}"
+                                "Downloaded ${formatBytes(state.totalBytesDownloaded)} · ${percent}%"
                         }
 
                         GeminiNanoDownloadState.Completed -> {
@@ -262,6 +281,7 @@ class MainActivity : Activity() {
     private fun showReady() {
         statusView.text =
             "Gemini Nano: AVAILABLE · ready for local generation."
+        downloadProgress.progress = 100
         downloadProgress.visibility = View.GONE
         downloadStatusView.visibility = View.GONE
         downloadButton.visibility = View.GONE

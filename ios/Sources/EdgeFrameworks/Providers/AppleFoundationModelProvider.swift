@@ -13,9 +13,7 @@ public struct AppleFoundationModelProvider: EdgeModelProvider {
         case .available:
             return [
                 .textGeneration,
-                .streaming,
-                .structuredOutput,
-                .toolCalling
+                .streaming
             ]
         default:
             return []

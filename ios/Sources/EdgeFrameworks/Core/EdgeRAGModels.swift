@@ -1,4 +1,4 @@
-public struct EdgeDocument: Equatable, Sendable {
+public struct EdgeDocument: Codable, Equatable, Sendable {
     public let id: String
     public let text: String
     public let metadata: [String: String]
@@ -14,7 +14,7 @@ public struct EdgeDocument: Equatable, Sendable {
     }
 }
 
-public struct EdgeChunk: Equatable, Sendable {
+public struct EdgeChunk: Codable, Equatable, Sendable {
     public let id: String
     public let documentID: String
     public let text: String
@@ -33,7 +33,7 @@ public struct EdgeChunk: Equatable, Sendable {
     }
 }
 
-public struct EdgeEmbedding: Equatable, Sendable {
+public struct EdgeEmbedding: Codable, Equatable, Sendable {
     public let values: [Float]
 
     public init(values: [Float]) {

@@ -21,21 +21,60 @@ Mobile AI is moving toward on-device execution, but the platform stacks are frag
 
 The goal is not to hide iOS and Android. The goal is to make the shared AI concepts consistent while keeping each platform native.
 
-## Initial direction
+## Current providers
 
 ### iOS
 
-- Swift + Swift Concurrency
-- Foundation Models provider
-- Core ML provider
-- room for MLX and ExecuTorch
+- Apple Foundation Models
+- Core ML — planned
+- MLX — planned
+- ExecuTorch — planned
 
 ### Android
 
-- Kotlin + Coroutines
-- Gemini Nano / ML Kit GenAI provider
-- LiteRT provider
-- room for ExecuTorch
+- Gemini Nano through ML Kit GenAI Prompt API
+- LiteRT — planned
+- ExecuTorch — planned
+
+## Quick start
+
+### iOS
+
+```swift
+if #available(iOS 26.0, *) {
+    let provider = AppleFoundationModelProvider()
+    let router = EdgeProviderRouter(providers: [provider])
+    let agent = EdgeAgent(router: router)
+
+    let response = try await agent.run(
+        EdgeGenerationRequest(
+            prompt: "Summarize this note in three bullets."
+        )
+    )
+
+    print(response.text)
+}
+```
+
+### Android
+
+```kotlin
+val provider = GeminiNanoProvider()
+val router = EdgeProviderRouter(listOf(provider))
+val agent = EdgeAgent(router)
+
+val response = agent.run(
+    EdgeGenerationRequest(
+        prompt = "Summarize this note in three bullets."
+    )
+)
+
+println(response.text)
+```
+
+The Gemini Nano provider advertises capabilities only when the on-device model is ready. Downloadable or currently downloading models are surfaced as `ModelNotReady`; unsupported devices are surfaced as `ProviderUnavailable`.
+
+The provider currently uses ML Kit GenAI Prompt API `1.0.0-beta4` and requires Android API 26 or newer.
 
 ## Repository shape
 
@@ -43,6 +82,8 @@ The goal is not to hide iOS and Android. The goal is to make the shared AI conce
 edge-frameworks-mobile/
 ├── ios/
 ├── android/
+│   ├── edge-frameworks-core/
+│   └── edge-frameworks-gemini-nano/
 ├── docs/
 ├── examples/
 ├── benchmarks/
@@ -51,12 +92,12 @@ edge-frameworks-mobile/
 
 ## v0.1 goals
 
-- define the core agent and provider contracts
-- ship minimal Swift and Kotlin packages
-- support streaming and cancellation
-- add one provider per platform
-- add example apps
-- add baseline latency and memory benchmarks
+- [x] define the core agent and provider contracts
+- [x] ship minimal Swift and Kotlin packages
+- [x] support streaming and cancellation
+- [x] add one provider per platform
+- [ ] add example apps
+- [ ] add baseline latency and memory benchmarks
 
 ## Principles
 

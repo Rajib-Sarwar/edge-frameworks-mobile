@@ -3,10 +3,12 @@ package io.github.rajibsarwar.edgeframeworks.example
 import android.app.Activity
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import io.github.rajibsarwar.edgeframeworks.EdgeAgent
@@ -15,9 +17,11 @@ import io.github.rajibsarwar.edgeframeworks.EdgeGenerationEvent
 import io.github.rajibsarwar.edgeframeworks.EdgeGenerationRequest
 import io.github.rajibsarwar.edgeframeworks.EdgeProviderRouter
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoAvailability
+import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoDownloadState
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoProvider
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -30,11 +34,14 @@ class MainActivity : Activity() {
     )
 
     private lateinit var statusView: TextView
+    private lateinit var downloadStatusView: TextView
     private lateinit var promptView: EditText
     private lateinit var outputView: TextView
     private lateinit var benchmarkView: TextView
     private lateinit var runButton: Button
     private lateinit var benchmarkButton: Button
+    private lateinit var downloadButton: Button
+    private lateinit var downloadProgress: ProgressBar
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,6 +70,22 @@ class MainActivity : Activity() {
         statusView = TextView(this).apply {
             text = "Checking on-device model…"
             setPadding(0, padding / 2, 0, padding / 2)
+        }
+
+        downloadProgress = ProgressBar(this).apply {
+            isIndeterminate = true
+            visibility = View.GONE
+        }
+
+        downloadStatusView = TextView(this).apply {
+            visibility = View.GONE
+            setPadding(0, padding / 4, 0, padding / 2)
+        }
+
+        downloadButton = Button(this).apply {
+            text = "Download model"
+            visibility = View.GONE
+            setOnClickListener { downloadModel() }
         }
 
         promptView = EditText(this).apply {
@@ -96,6 +119,9 @@ class MainActivity : Activity() {
 
         content.addView(title)
         content.addView(statusView)
+        content.addView(downloadProgress)
+        content.addView(downloadStatusView)
+        content.addView(downloadButton)
         content.addView(
             promptView,
             LinearLayout.LayoutParams(
@@ -116,35 +142,131 @@ class MainActivity : Activity() {
     private fun refreshAvailability() {
         scope.launch {
             when (provider.availability()) {
-                GeminiNanoAvailability.AVAILABLE -> {
-                    statusView.text =
-                        "Gemini Nano: AVAILABLE · ready for local generation."
-                    runButton.isEnabled = true
-                    benchmarkButton.isEnabled = true
-                }
+                GeminiNanoAvailability.AVAILABLE -> showReady()
 
                 GeminiNanoAvailability.DOWNLOADABLE -> {
                     statusView.text =
                         "Gemini Nano: DOWNLOADABLE · model is not installed yet."
+                    downloadButton.visibility = View.VISIBLE
+                    downloadButton.isEnabled = true
+                    downloadProgress.visibility = View.GONE
+                    downloadStatusView.visibility = View.GONE
                     runButton.isEnabled = false
                     benchmarkButton.isEnabled = false
                 }
 
                 GeminiNanoAvailability.DOWNLOADING -> {
                     statusView.text =
-                        "Gemini Nano: DOWNLOADING · wait for the model download to finish."
+                        "Gemini Nano: DOWNLOADING · preparing the on-device model."
+                    downloadButton.visibility = View.GONE
+                    downloadProgress.visibility = View.VISIBLE
+                    downloadStatusView.visibility = View.VISIBLE
+                    downloadStatusView.text = "Download already in progress…"
                     runButton.isEnabled = false
                     benchmarkButton.isEnabled = false
+                    waitUntilDownloadFinishes()
                 }
 
                 GeminiNanoAvailability.UNAVAILABLE -> {
                     statusView.text =
-                        "Gemini Nano: UNAVAILABLE · ML Kit reports this feature is unavailable."
+                        "Gemini Nano: UNAVAILABLE · ML Kit reports the Prompt API is not available on this device/configuration."
+                    downloadButton.visibility = View.GONE
+                    downloadProgress.visibility = View.GONE
+                    downloadStatusView.visibility = View.VISIBLE
+                    downloadStatusView.text =
+                        "Local generation and benchmarking are disabled."
                     runButton.isEnabled = false
                     benchmarkButton.isEnabled = false
                 }
             }
         }
+    }
+
+    private fun downloadModel() {
+        downloadButton.isEnabled = false
+        downloadButton.visibility = View.GONE
+        downloadProgress.visibility = View.VISIBLE
+        downloadStatusView.visibility = View.VISIBLE
+        downloadStatusView.text = "Starting model download…"
+        statusView.text = "Gemini Nano: DOWNLOADING"
+
+        scope.launch {
+            try {
+                provider.download().collect { state ->
+                    when (state) {
+                        GeminiNanoDownloadState.Started -> {
+                            downloadStatusView.text = "Download started…"
+                        }
+
+                        is GeminiNanoDownloadState.Progress -> {
+                            downloadStatusView.text =
+                                "Downloaded ${formatBytes(state.totalBytesDownloaded)}"
+                        }
+
+                        GeminiNanoDownloadState.Completed -> {
+                            downloadStatusView.text = "Download complete."
+                            showReady()
+                        }
+
+                        is GeminiNanoDownloadState.Failed -> {
+                            statusView.text = "Gemini Nano download failed."
+                            downloadStatusView.text = state.message
+                            downloadProgress.visibility = View.GONE
+                            downloadButton.visibility = View.VISIBLE
+                            downloadButton.isEnabled = true
+                        }
+                    }
+                }
+            } catch (error: Exception) {
+                statusView.text = "Gemini Nano download failed."
+                downloadStatusView.text =
+                    error.message ?: error::class.java.simpleName
+                downloadProgress.visibility = View.GONE
+                downloadButton.visibility = View.VISIBLE
+                downloadButton.isEnabled = true
+            }
+        }
+    }
+
+    private suspend fun waitUntilDownloadFinishes() {
+        while (true) {
+            delay(2_000)
+
+            when (provider.availability()) {
+                GeminiNanoAvailability.AVAILABLE -> {
+                    showReady()
+                    return
+                }
+
+                GeminiNanoAvailability.DOWNLOADING -> Unit
+
+                GeminiNanoAvailability.DOWNLOADABLE -> {
+                    downloadProgress.visibility = View.GONE
+                    downloadButton.visibility = View.VISIBLE
+                    downloadButton.isEnabled = true
+                    downloadStatusView.text =
+                        "Download paused or not started. Tap Download model."
+                    return
+                }
+
+                GeminiNanoAvailability.UNAVAILABLE -> {
+                    downloadProgress.visibility = View.GONE
+                    downloadStatusView.text =
+                        "Prompt API became unavailable on this device."
+                    return
+                }
+            }
+        }
+    }
+
+    private fun showReady() {
+        statusView.text =
+            "Gemini Nano: AVAILABLE · ready for local generation."
+        downloadProgress.visibility = View.GONE
+        downloadStatusView.visibility = View.GONE
+        downloadButton.visibility = View.GONE
+        runButton.isEnabled = true
+        benchmarkButton.isEnabled = true
     }
 
     private fun generate() {
@@ -243,5 +365,10 @@ class MainActivity : Activity() {
 
     private fun format(value: Double): String {
         return String.format(Locale.US, "%.1f", value)
+    }
+
+    private fun formatBytes(bytes: Long): String {
+        val megabytes = bytes / 1_048_576.0
+        return String.format(Locale.US, "%.1f MB", megabytes)
     }
 }

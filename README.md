@@ -142,6 +142,50 @@ let response = try await provider.generate(
 When Apple Foundation Models is available, the provider advertises `.toolCalling`.
 Android tool registration remains provider-specific future work.
 
+## Local RAG foundation
+
+The core now includes provider-neutral retrieval primitives on both platforms:
+
+| Concept | Swift | Kotlin |
+| --- | --- | --- |
+| Source document | `EdgeDocument` | `EdgeDocument` |
+| Searchable chunk | `EdgeChunk` | `EdgeChunk` |
+| Vector | `EdgeEmbedding` | `EdgeEmbedding` |
+| Embedding backend | `EdgeEmbeddingProvider` | `EdgeEmbeddingProvider` |
+| Vector storage | `EdgeVectorStore` | `EdgeVectorStore` |
+| Local store | `EdgeInMemoryVectorStore` | `EdgeInMemoryVectorStore` |
+| Retrieval orchestration | `EdgeRetriever` | `EdgeRetriever` |
+
+The retrieval flow is intentionally small:
+
+```text
+Document
+   ↓
+Chunk
+   ↓
+EmbeddingProvider
+   ↓
+Embedding
+   ↓
+VectorStore
+   ↓
+cosine similarity
+   ↓
+top-K relevant chunks
+```
+
+`EdgeRetriever` indexes chunks by asking an embedding provider for vectors, then
+retrieves the most relevant chunks for a query. The in-memory vector store ranks
+results with cosine similarity and replaces existing entries by chunk identifier.
+
+This milestone defines the local RAG architecture only. It does **not** yet ship a
+real Core ML, MLX, or Android embedding model, persistent vector database, document
+parser, or automatic prompt augmentation. Those are the next provider and demo layers.
+
+A future demo will index a small local document set, show the retrieved chunks and
+similarity scores, then pass those chunks to an on-device language model to answer
+questions with zero network requests.
+
 ## Example apps
 
 Two small example apps exercise the same framework architecture on each platform:
@@ -225,7 +269,7 @@ edge-frameworks-mobile/
 - [x] compile-time structured-generation coverage
 - [x] framework-level tool abstraction
 - [x] Apple Foundation Models tool calling
-- [ ] local retrieval / RAG foundation
+- [x] local retrieval / RAG foundation
 
 ## Principles
 

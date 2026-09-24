@@ -10,6 +10,15 @@ public struct EdgeRetriever: Sendable {
         self.vectorStore = vectorStore
     }
 
+    public func index(
+        _ document: EdgeDocument,
+        chunker: EdgeTextChunker = EdgeTextChunker()
+    ) async throws {
+        try await index(
+            chunker.chunk(document)
+        )
+    }
+
     public func index(_ chunks: [EdgeChunk]) async throws {
         var embeddings: [EdgeEmbedding] = []
         embeddings.reserveCapacity(chunks.count)

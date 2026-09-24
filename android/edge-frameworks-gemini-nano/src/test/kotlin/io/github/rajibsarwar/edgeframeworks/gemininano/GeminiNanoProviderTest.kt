@@ -33,7 +33,7 @@ class GeminiNanoProviderTest {
             FakeGeminiNanoClient(
                 status = GeminiNanoStatus.DOWNLOADABLE,
                 downloadEvents = listOf(
-                    GeminiNanoDownloadEvent.Started,
+                    GeminiNanoDownloadEvent.Started(2_097_152),
                     GeminiNanoDownloadEvent.Progress(1_048_576),
                     GeminiNanoDownloadEvent.Completed
                 )
@@ -44,7 +44,7 @@ class GeminiNanoProviderTest {
 
         assertEquals(
             listOf(
-                GeminiNanoDownloadState.Started,
+                GeminiNanoDownloadState.Started(2_097_152),
                 GeminiNanoDownloadState.Progress(1_048_576),
                 GeminiNanoDownloadState.Completed
             ),

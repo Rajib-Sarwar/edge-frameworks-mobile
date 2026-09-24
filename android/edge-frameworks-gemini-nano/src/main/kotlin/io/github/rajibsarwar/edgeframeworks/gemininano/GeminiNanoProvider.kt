@@ -10,12 +10,20 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 
 enum class GeminiNanoAvailability {
     AVAILABLE,
     DOWNLOADABLE,
     DOWNLOADING,
     UNAVAILABLE
+}
+
+sealed interface GeminiNanoDownloadState {
+    data object Started : GeminiNanoDownloadState
+    data class Progress(val totalBytesDownloaded: Long) : GeminiNanoDownloadState
+    data object Completed : GeminiNanoDownloadState
+    data class Failed(val message: String) : GeminiNanoDownloadState
 }
 
 class GeminiNanoProvider : EdgeModelProvider {
@@ -41,6 +49,26 @@ class GeminiNanoProvider : EdgeModelProvider {
             }
         } catch (_: Exception) {
             GeminiNanoAvailability.UNAVAILABLE
+        }
+    }
+
+    fun download(): Flow<GeminiNanoDownloadState> {
+        return client.download().map { event ->
+            when (event) {
+                GeminiNanoDownloadEvent.Started ->
+                    GeminiNanoDownloadState.Started
+
+                is GeminiNanoDownloadEvent.Progress ->
+                    GeminiNanoDownloadState.Progress(
+                        totalBytesDownloaded = event.totalBytesDownloaded
+                    )
+
+                GeminiNanoDownloadEvent.Completed ->
+                    GeminiNanoDownloadState.Completed
+
+                is GeminiNanoDownloadEvent.Failed ->
+                    GeminiNanoDownloadState.Failed(event.message)
+            }
         }
     }
 

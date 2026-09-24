@@ -85,6 +85,43 @@ Two small example apps exercise the same framework architecture on each platform
 
 Both examples include runtime capability checks, provider routing, streaming generation, and framework-level error handling. Their build paths are covered by CI.
 
+## Running the examples
+
+### iOS · Apple Foundation Models
+
+The iOS example uses XcodeGen, so the generated `.xcodeproj` is not committed to the repository.
+
+From a fresh clone:
+
+```bash
+cd ios/Examples/AppleFoundationModelsDemo
+
+brew install xcodegen   # first time only
+xcodegen generate
+open AppleFoundationModelsDemo.xcodeproj
+```
+
+In Xcode, select a supported physical iPhone and run the `AppleFoundationModelsDemo` scheme.
+
+Requirements:
+
+- Xcode 26 or newer
+- iOS 26 or newer
+- Apple Foundation Models available on the device
+
+### Android · Gemini Nano
+
+Open the `android` directory in Android Studio, connect a supported physical Android device, and run:
+
+```text
+examples:gemini-nano-app
+```
+
+Requirements:
+
+- Android API 26 or newer
+- Gemini Nano / ML Kit GenAI available on the device
+
 ## Repository shape
 
 ```text

@@ -1,15 +1,19 @@
 import EdgeFrameworks
 import Foundation
+import UIKit
 
 @MainActor
 final class DemoViewModel: ObservableObject {
     @Published var prompt = "Explain on-device AI in three short bullets."
     @Published var output = ""
     @Published var status = "Checking on-device model…"
+    @Published var benchmarkOutput = ""
     @Published var isRunning = false
+    @Published var isBenchmarking = false
     @Published var isAvailable = false
 
     private var agent: EdgeAgent?
+    private var provider: AppleFoundationModelProvider?
 
     init() {
         configure()
@@ -22,6 +26,8 @@ final class DemoViewModel: ObservableObject {
         }
 
         let provider = AppleFoundationModelProvider()
+        self.provider = provider
+
         let router = EdgeProviderRouter(providers: [provider])
         agent = EdgeAgent(router: router)
 
@@ -73,5 +79,65 @@ final class DemoViewModel: ObservableObject {
                 output = String(describing: error)
             }
         }
+    }
+
+    func runBenchmark() {
+        guard
+            #available(iOS 26.0, *),
+            let provider
+        else {
+            return
+        }
+
+        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPrompt.isEmpty else { return }
+
+        isBenchmarking = true
+        benchmarkOutput = ""
+        status = "Warming up model…"
+
+        Task {
+            defer { isBenchmarking = false }
+
+            do {
+                let request = EdgeGenerationRequest(
+                    prompt: trimmedPrompt,
+                    systemPrompt: "Answer clearly and concisely."
+                )
+
+                _ = try await provider.generate(request)
+
+                status = "Running 10 benchmark iterations…"
+
+                let summary = try await EdgeBenchmarkRunner().run(
+                    provider: provider,
+                    request: request,
+                    iterations: 10
+                )
+
+                benchmarkOutput = formatBenchmark(summary)
+                status = "Benchmark completed."
+            } catch {
+                status = "Benchmark failed."
+                benchmarkOutput = String(describing: error)
+            }
+        }
+    }
+
+    private func formatBenchmark(
+        _ summary: EdgeBenchmarkSummary
+    ) -> String {
+        """
+        Device: \(UIDevice.current.model)
+        OS: iOS \(UIDevice.current.systemVersion)
+        Provider: \(summary.providerID)
+        Iterations: \(summary.iterations)
+        Warm-up: 1 unmeasured request
+
+        Average latency: \(summary.averageLatencyMilliseconds.formatted(.number.precision(.fractionLength(1)))) ms
+        P50 latency: \(summary.p50LatencyMilliseconds.formatted(.number.precision(.fractionLength(1)))) ms
+        P95 latency: \(summary.p95LatencyMilliseconds.formatted(.number.precision(.fractionLength(1)))) ms
+        Average memory delta: \((summary.averageMemoryDeltaBytes / 1_048_576).formatted(.number.precision(.fractionLength(2)))) MB
+        """
     }
 }

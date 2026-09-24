@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 rootProject.name = "edge-frameworks-mobile-android"
 include(":edge-frameworks-core")
 include(":edge-frameworks-gemini-nano")
+include(":examples:gemini-nano-app")

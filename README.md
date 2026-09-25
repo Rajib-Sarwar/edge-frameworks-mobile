@@ -2,7 +2,7 @@
 
 Local-first AI infrastructure for building native mobile experiences across iOS and Android.
 
-> Status: v0.3.0 is ready for release.
+> Status: v0.3.0 is released. v0.4.0 development is in progress.
 
 ## Why this exists
 
@@ -431,6 +431,71 @@ vector-store content.
 This first incremental implementation is source-level: any content change re-indexes that
 source as a unit. Fine-grained per-page/per-section diffing can be layered on later.
 
+## Automatic RAG orchestration
+
+v0.4 starts by collapsing the manual retrieve → context-build → generate sequence into
+one provider-neutral API.
+
+```text
+query
+  ↓
+EdgeRetriever
+  ↓
+top-K / filter / minimum score
+  ↓
+context builder
+  ↓
+EdgeAgent
+  ↓
+generation provider
+  ↓
+EdgeRAGResult
+```
+
+Swift:
+
+```swift
+let rag = EdgeRAG(
+    retriever: retriever,
+    agent: agent
+)
+
+let result = try await rag.run(
+    query: "When does my flight leave?",
+    in: travelCollection,
+    topK: 3
+)
+
+print(result.answer)
+print(result.retrievedResults)
+```
+
+Kotlin:
+
+```kotlin
+val rag = EdgeRAG(
+    retriever = retriever,
+    agent = agent
+)
+
+val result = rag.run(
+    query = "When does my flight leave?",
+    collection = travelCollection,
+    topK = 3
+)
+
+println(result.answer)
+println(result.retrievedResults)
+```
+
+`EdgeRAGRequest` supports an optional collection, vector filter, top-K, minimum score,
+and custom system prompt. `EdgeRAGResult` returns the final answer together with the
+retrieved search results and the exact local context passed into generation.
+
+The default system instruction tells the model to answer only from supplied local
+context and to say when the local knowledge is insufficient. Apps can replace that
+instruction when they need domain-specific behavior.
+
 ## Example apps
 
 Two small example apps exercise the same framework architecture on each platform:
@@ -566,6 +631,18 @@ Finer-grained diffing and broader visual semantics remain future work.
 - [x] image ingestion
 - [x] persistent collection catalog and source management
 - [x] automatic change detection / incremental re-indexing
+
+## v0.4 progress
+
+- [x] automatic RAG retrieval/context/generation orchestration
+- [x] configurable top-K
+- [x] optional minimum retrieval score
+- [x] collection and metadata-filter aware orchestration
+- [x] retrieved context/results returned to the caller
+- [ ] fine-grained page/chunk incremental re-indexing
+- [ ] higher-level collection/source management APIs
+- [ ] retrieval observability and metrics
+- [ ] hybrid lexical + vector retrieval
 
 ## Principles
 

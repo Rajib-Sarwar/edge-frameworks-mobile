@@ -13,6 +13,7 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.rendering.PDFRenderer
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import io.github.rajibsarwar.edgeframeworks.EdgeDocument
+import java.io.Closeable
 import java.io.InputStream
 import java.util.UUID
 import kotlin.coroutines.resume
@@ -23,7 +24,7 @@ import kotlinx.coroutines.withContext
 
 class AndroidPDFDocumentImporter(
     context: Context
-) {
+) : Closeable {
     private val recognizer: TextRecognizer =
         TextRecognition.getClient(
             TextRecognizerOptions.DEFAULT_OPTIONS
@@ -142,6 +143,10 @@ class AndroidPDFDocumentImporter(
                     }
                 }
         }
+    }
+
+    override fun close() {
+        recognizer.close()
     }
 
     internal companion object {

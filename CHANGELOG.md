@@ -12,6 +12,8 @@ All notable changes to this project will be documented in this file.
 - Persistent vector-store removal support on iOS and Android.
 - Scanned PDF OCR fallback on iOS with Apple Vision and on Android with bundled ML Kit Text Recognition.
 - DOCX and HTML ingestion on iOS and Android with document-format metadata preserved for RAG.
+- Persistent knowledge collection/source catalog on iOS and Android.
+- SHA-256 source fingerprinting and source-level incremental re-indexing that skips unchanged content.
 
 ## 0.2.0 - 2026-09-24
 

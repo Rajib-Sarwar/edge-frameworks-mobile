@@ -188,6 +188,123 @@ final class EdgeKnowledgeCatalogTests: XCTestCase {
             at: directory
         )
     }
+    func testFineGrainedSyncOnlyReembedsChangedPage() async throws {
+        let embeddingProvider = CountingEmbeddingProvider()
+        let store = EdgeInMemoryVectorStore()
+        let retriever = EdgeRetriever(
+            embeddingProvider: embeddingProvider,
+            vectorStore: store
+        )
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        let catalog = try EdgeFileKnowledgeCatalog(
+            fileURL: directory
+                .appendingPathComponent("catalog.json")
+        )
+
+        let indexer = EdgeIncrementalIndexer(
+            retriever: retriever,
+            catalog: catalog
+        )
+
+        let collection = EdgeKnowledgeCollection(
+            id: "manual",
+            name: "Manual"
+        )
+
+        let firstDocuments = [
+            EdgeDocument(
+                id: "old-page-1",
+                text: "Page one stays exactly the same.",
+                metadata: [
+                    "source": "manual.pdf",
+                    "pageNumber": "1",
+                    "parentDocumentID": "old-parent"
+                ]
+            ),
+            EdgeDocument(
+                id: "old-page-2",
+                text: "Page two old content.",
+                metadata: [
+                    "source": "manual.pdf",
+                    "pageNumber": "2",
+                    "parentDocumentID": "old-parent"
+                ]
+            )
+        ]
+
+        _ = try await indexer.sync(
+            sourceID: "manual-source",
+            sourceIdentifier: "manual.pdf",
+            contentFingerprint: "whole-v1",
+            documents: firstDocuments,
+            collection: collection
+        )
+
+        let initialCalls = await embeddingProvider.callCount()
+        XCTAssertEqual(initialCalls, 2)
+
+        let secondDocuments = [
+            EdgeDocument(
+                id: "new-page-1",
+                text: "Page one stays exactly the same.",
+                metadata: [
+                    "source": "manual.pdf",
+                    "pageNumber": "1",
+                    "parentDocumentID": "new-parent"
+                ]
+            ),
+            EdgeDocument(
+                id: "new-page-2",
+                text: "Page two changed content.",
+                metadata: [
+                    "source": "manual.pdf",
+                    "pageNumber": "2",
+                    "parentDocumentID": "new-parent"
+                ]
+            )
+        ]
+
+        let result = try await indexer.sync(
+            sourceID: "manual-source",
+            sourceIdentifier: "manual.pdf",
+            contentFingerprint: "whole-v2",
+            documents: secondDocuments,
+            collection: collection
+        )
+
+        guard case .indexed(
+            let source,
+            let removedChunks,
+            let indexedDocuments
+        ) = result else {
+            return XCTFail("Expected fine-grained indexing")
+        }
+
+        XCTAssertEqual(removedChunks, 1)
+        XCTAssertEqual(indexedDocuments, 1)
+        XCTAssertEqual(
+            source.documentStates.first {
+                $0.key == "page:1"
+            }?.documentID,
+            "old-page-1"
+        )
+        XCTAssertEqual(
+            source.documentStates.first {
+                $0.key == "page:2"
+            }?.documentID,
+            "new-page-2"
+        )
+
+        let finalCalls = await embeddingProvider.callCount()
+        XCTAssertEqual(finalCalls, 3)
+
+        try? FileManager.default.removeItem(
+            at: directory
+        )
+    }
+
 }
 
 private actor CountingEmbeddingProvider:

@@ -23,6 +23,7 @@ import io.github.rajibsarwar.edgeframeworks.EdgeGenerationRequest
 import io.github.rajibsarwar.edgeframeworks.EdgeProviderRouter
 import io.github.rajibsarwar.edgeframeworks.EdgeRetriever
 import io.github.rajibsarwar.edgeframeworks.EdgeTextChunker
+import io.github.rajibsarwar.edgeframeworks.documents.AndroidRichDocumentImporter
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoAvailability
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoDownloadState
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoProvider
@@ -68,6 +69,8 @@ class MainActivity : Activity() {
     private val pdfImporter by lazy {
         AndroidPDFDocumentImporter(this)
     }
+    private val richDocumentImporter =
+        AndroidRichDocumentImporter()
     private val ragChunker = EdgeTextChunker(
         maxCharacters = 800,
         overlapCharacters = 120
@@ -472,8 +475,10 @@ class MainActivity : Activity() {
                 arrayOf(
                     "text/plain",
                     "text/markdown",
+                    "text/html",
                     "application/json",
-                    "application/pdf"
+                    "application/pdf",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
             )
         }
@@ -516,31 +521,79 @@ class MainActivity : Activity() {
                         ignoreCase = true
                     )
 
-                val documents = if (isPdf) {
-                    pdfImporter.importDocument(
-                        contentResolver = contentResolver,
-                        uri = uri,
-                        sourceName = name
-                    )
-                } else {
-                    val text = contentResolver
-                        .openInputStream(uri)
-                        ?.bufferedReader()
-                        ?.use { it.readText() }
-                        ?: error(
-                            "Unable to read selected document"
-                        )
+                val lowerName = name.lowercase()
+                val isDocx =
+                    mimeType ==
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+                    lowerName.endsWith(".docx")
+                val isHtml =
+                    mimeType == "text/html" ||
+                    lowerName.endsWith(".html") ||
+                    lowerName.endsWith(".htm")
 
-                    listOf(
-                        EdgeDocument(
-                            id = UUID.randomUUID().toString(),
-                            text = text,
-                            metadata = mapOf(
-                                "source" to name,
-                                "mediaType" to "text/plain"
+                val documents = when {
+                    isPdf -> {
+                        pdfImporter.importDocument(
+                            contentResolver = contentResolver,
+                            uri = uri,
+                            sourceName = name
+                        )
+                    }
+
+                    isDocx -> {
+                        val input = contentResolver
+                            .openInputStream(uri)
+                            ?: error(
+                                "Unable to read selected DOCX"
+                            )
+
+                        listOf(
+                            input.use {
+                                richDocumentImporter.importDocx(
+                                    inputStream = it,
+                                    sourceName = name
+                                )
+                            }
+                        )
+                    }
+
+                    isHtml -> {
+                        val input = contentResolver
+                            .openInputStream(uri)
+                            ?: error(
+                                "Unable to read selected HTML"
+                            )
+
+                        listOf(
+                            input.use {
+                                richDocumentImporter.importHtml(
+                                    inputStream = it,
+                                    sourceName = name
+                                )
+                            }
+                        )
+                    }
+
+                    else -> {
+                        val text = contentResolver
+                            .openInputStream(uri)
+                            ?.bufferedReader()
+                            ?.use { it.readText() }
+                            ?: error(
+                                "Unable to read selected document"
+                            )
+
+                        listOf(
+                            EdgeDocument(
+                                id = UUID.randomUUID().toString(),
+                                text = text,
+                                metadata = mapOf(
+                                    "source" to name,
+                                    "mediaType" to "text/plain"
+                                )
                             )
                         )
-                    )
+                    }
                 }
 
                 val chunks = documents.flatMap {

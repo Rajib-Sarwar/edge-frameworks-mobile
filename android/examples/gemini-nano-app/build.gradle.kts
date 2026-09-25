@@ -35,6 +35,7 @@ dependencies {
     implementation(project(":edge-frameworks-gemini-nano"))
     implementation(project(":edge-frameworks-mediapipe-embeddings"))
     implementation(project(":edge-frameworks-pdf"))
+    implementation(project(":edge-frameworks-documents"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 }
 

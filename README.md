@@ -214,11 +214,11 @@ the retrieved chunks and similarity scores, and then generates the final answer 
 that retrieved context with Apple Foundation Models. No network service or cloud vector
 database is required for this flow.
 
-The iOS demo now persists vector data in Application Support and can import UTF-8 text,
-Markdown, JSON, and text-based PDF documents through the system document picker. PDF
-text extraction uses Apple's PDFKit and preserves source filename and page metadata.
-Scanned or image-only PDFs are not OCR'd in v0.2. Larger embedding backends and richer
-document parsers remain future work.
+The iOS demo persists vector data in Application Support and can import UTF-8 text,
+Markdown, JSON, PDF, DOCX, and HTML documents through the system document picker.
+PDF pages use PDFKit with Apple Vision OCR fallback for scanned pages. DOCX text is
+extracted from WordprocessingML inside the package, and HTML is converted to readable
+text before chunking and indexing.
 
 ## Android local RAG demo
 
@@ -249,12 +249,12 @@ The Android example mirrors the iOS demo: it indexes the same small local knowle
 accepts a question, displays the top retrieved chunks with similarity scores, and passes
 only that retrieved context to Gemini Nano for the final response.
 
-The Android demo now persists vector data to app-local storage and can import UTF-8
-text, Markdown, JSON, and text-based PDF documents from the system document picker.
-PDF extraction is provided by the Apache-2.0-licensed PdfBox-Android port and preserves
-source filename and page metadata. Scanned or image-only PDFs are not OCR'd in v0.2.
-The embedding model is packaged with the app during the build rather than downloaded by
-the runtime RAG code.
+The Android demo persists vector data to app-local storage and can import UTF-8 text,
+Markdown, JSON, PDF, DOCX, and HTML documents from the system document picker. PDF
+pages use PdfBox-Android with bundled ML Kit OCR fallback. DOCX text is extracted from
+WordprocessingML and HTML is parsed with jsoup before chunking and indexing. The
+embedding model is packaged with the app during the build rather than downloaded by the
+runtime RAG code.
 
 ## Document import, chunking, and persistence
 
@@ -298,10 +298,10 @@ text-based PDF files. PDF pages are imported as local documents before chunking,
 through retrieval. Imported content is chunked, embedded on-device, and persisted in the
 local vector store.
 
-v0.3 adds OCR fallback for scanned/image-only PDF pages. Pages with embedded text still
-use direct text extraction; pages without extractable text are rendered locally and
-passed through the platform OCR engine before chunking and indexing. Word, HTML, image
-ingestion outside PDF pages, and richer document parsers remain future work.
+v0.3 adds OCR fallback for scanned/image-only PDF pages plus DOCX and HTML ingestion.
+DOCX imports the main WordprocessingML document text while preserving source metadata;
+HTML is converted to readable text before chunking. Image ingestion outside PDF pages
+and richer document parsers remain future work.
 
 ## Scanned PDF / OCR ingestion
 
@@ -328,6 +328,38 @@ Both implementations preserve `source`, `pageNumber`, `pageCount`,
 
 OCR is intentionally used only for PDF pages where embedded text extraction returns no
 text, avoiding unnecessary OCR work for normal digital PDFs.
+
+## DOCX / HTML ingestion
+
+The document pipeline now accepts local Word and HTML knowledge sources:
+
+```text
+DOCX
+  ↓
+ZIP package
+  ↓
+word/document.xml
+  ↓
+WordprocessingML text
+  ↓
+EdgeDocument
+
+HTML
+  ↓
+platform HTML parser
+  ↓
+readable text
+  ↓
+EdgeDocument
+```
+
+On iOS, DOCX ZIP access uses ZIPFoundation and HTML conversion uses the platform
+attributed-string HTML importer. On Android, DOCX uses the platform ZIP/XML stack and
+HTML parsing uses jsoup. Both formats preserve `source`, `mediaType`,
+`documentFormat`, and `extractionMethod` metadata before chunking and embedding.
+
+The DOCX slice focuses on the main `word/document.xml` body. Headers, footers,
+comments, tracked-change semantics, and embedded media are not yet modeled separately.
 
 ## Example apps
 
@@ -391,6 +423,7 @@ edge-frameworks-mobile/
 │   ├── edge-frameworks-core/
 │   ├── edge-frameworks-gemini-nano/
 │   ├── edge-frameworks-mediapipe-embeddings/
+│   ├── edge-frameworks-documents/
 │   ├── edge-frameworks-pdf/
 │   └── examples/
 │       └── gemini-nano-app/
@@ -446,8 +479,9 @@ EdgeVectorStore
 replacing its previous chunks, remove one document, remove by metadata, or clear a
 collection without affecting other local knowledge.
 
-This is the first v0.3 slice. OCR/scanned PDFs, DOCX/HTML/image ingestion, richer
-collection persistence, and automatic source change detection remain upcoming work.
+v0.3 now includes collection lifecycle, scanned-PDF OCR, and DOCX/HTML ingestion.
+Image ingestion, richer collection persistence, and automatic source change detection
+remain upcoming work.
 
 ## v0.3 progress
 
@@ -457,7 +491,7 @@ collection persistence, and automatic source change detection remain upcoming wo
 - [x] document removal and collection clearing
 - [x] document re-indexing lifecycle
 - [x] scanned PDF / OCR ingestion
-- [ ] DOCX / HTML ingestion
+- [x] DOCX / HTML ingestion
 - [ ] image ingestion
 - [ ] persistent collection catalog and source management
 - [ ] automatic change detection / incremental re-indexing

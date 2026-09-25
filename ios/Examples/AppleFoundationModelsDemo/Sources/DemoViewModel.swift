@@ -166,15 +166,26 @@ final class DemoViewModel: ObservableObject {
                 return
             }
 
-            ragStatus = sourceName.lowercased().hasSuffix(".pdf")
-                ? "Extracting PDF text · OCR fallback runs locally when needed…"
-                : "Reading local document…"
+            let fileExtension = url.pathExtension.lowercased()
+            if fileExtension == "pdf" {
+                ragStatus =
+                    "Extracting PDF text · OCR fallback runs locally when needed…"
+            } else if fileExtension == "docx" {
+                ragStatus = "Extracting DOCX text locally…"
+            } else if fileExtension == "html" || fileExtension == "htm" {
+                ragStatus = "Parsing HTML locally…"
+            } else {
+                ragStatus = "Reading local document…"
+            }
 
             Task {
                 do {
                     let documents: [EdgeDocument]
+                    let fileExtension =
+                        url.pathExtension.lowercased()
 
-                    if url.pathExtension.lowercased() == "pdf" {
+                    switch fileExtension {
+                    case "pdf":
                         documents = try await Task.detached {
                             try await ApplePDFDocumentImporter()
                                 .importDocumentWithOCR(
@@ -182,13 +193,34 @@ final class DemoViewModel: ObservableObject {
                                     sourceName: sourceName
                                 )
                         }.value
-                    } else {
+
+                    case "docx":
+                        let document = try await Task.detached {
+                            try AppleRichDocumentImporter()
+                                .importDOCX(
+                                    data: data,
+                                    sourceName: sourceName
+                                )
+                        }.value
+                        documents = [document]
+
+                    case "html", "htm":
+                        let document = try await Task.detached {
+                            try AppleRichDocumentImporter()
+                                .importHTML(
+                                    data: data,
+                                    sourceName: sourceName
+                                )
+                        }.value
+                        documents = [document]
+
+                    default:
                         guard let text = String(
                             data: data,
                             encoding: .utf8
                         ) else {
                             ragStatus =
-                                "Import failed · document is not UTF-8 text."
+                                "Import failed · document is not supported UTF-8 text."
                             return
                         }
 

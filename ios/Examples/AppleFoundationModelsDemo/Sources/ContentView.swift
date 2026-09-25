@@ -140,7 +140,10 @@ struct ContentView: View {
                     .plainText,
                     .json,
                     .pdf,
-                    UTType(filenameExtension: "md") ?? .plainText
+                    .html,
+                    UTType(filenameExtension: "md") ?? .plainText,
+                    UTType(filenameExtension: "docx")
+                        ?? .data
                 ],
                 allowsMultipleSelection: false
             ) { result in

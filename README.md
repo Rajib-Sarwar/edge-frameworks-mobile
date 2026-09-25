@@ -428,8 +428,12 @@ Changed sources remove their previously indexed chunks, index the new documents,
 replace the catalog entry. Removing a source or collection also removes the associated
 vector-store content.
 
-This first incremental implementation is source-level: any content change re-indexes that
-source as a unit. Fine-grained per-page/per-section diffing can be layered on later.
+Incremental indexing now keeps per-document fingerprints inside each source. When a
+multi-document source changes, unchanged documents keep their existing vector entries
+while changed, added, or removed documents are updated independently. PDF imports use
+stable page keys, so changing one page does not require re-embedding every unchanged
+page. Older persisted catalogs without per-document fingerprints remain readable and are
+upgraded on the next changed-source sync.
 
 ## Automatic RAG orchestration
 
@@ -639,7 +643,7 @@ Finer-grained diffing and broader visual semantics remain future work.
 - [x] optional minimum retrieval score
 - [x] collection and metadata-filter aware orchestration
 - [x] retrieved context/results returned to the caller
-- [ ] fine-grained page/chunk incremental re-indexing
+- [x] fine-grained page/document incremental re-indexing
 - [ ] higher-level collection/source management APIs
 - [ ] retrieval observability and metrics
 - [ ] hybrid lexical + vector retrieval

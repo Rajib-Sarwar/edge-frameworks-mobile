@@ -220,6 +220,142 @@ class EdgeKnowledgeCatalogTest {
 
             directory.deleteRecursively()
         }
+    @Test
+    fun fineGrainedSyncOnlyReembedsChangedPage() = runTest {
+        val embeddingProvider =
+            CountingEmbeddingProvider()
+
+        val retriever = EdgeRetriever(
+            embeddingProvider = embeddingProvider,
+            vectorStore = EdgeInMemoryVectorStore()
+        )
+
+        val directory =
+            createTempDirectory(
+                prefix = "edge-fine-indexer-"
+            ).toFile()
+
+        val catalog =
+            EdgeFileKnowledgeCatalog(
+                File(
+                    directory,
+                    "catalog.bin"
+                )
+            )
+
+        val indexer = EdgeIncrementalIndexer(
+            retriever = retriever,
+            catalog = catalog
+        )
+
+        val collection =
+            EdgeKnowledgeCollection(
+                id = "manual",
+                name = "Manual"
+            )
+
+        val firstDocuments = listOf(
+            EdgeDocument(
+                id = "old-page-1",
+                text = "Page one stays exactly the same.",
+                metadata = mapOf(
+                    "source" to "manual.pdf",
+                    "pageNumber" to "1",
+                    "parentDocumentID" to "old-parent"
+                )
+            ),
+            EdgeDocument(
+                id = "old-page-2",
+                text = "Page two old content.",
+                metadata = mapOf(
+                    "source" to "manual.pdf",
+                    "pageNumber" to "2",
+                    "parentDocumentID" to "old-parent"
+                )
+            )
+        )
+
+        indexer.sync(
+            sourceId = "manual-source",
+            sourceIdentifier = "manual.pdf",
+            contentFingerprint = "whole-v1",
+            documents = firstDocuments,
+            collection = collection
+        )
+
+        assertEquals(
+            2,
+            embeddingProvider.callCount.get()
+        )
+
+        val secondDocuments = listOf(
+            EdgeDocument(
+                id = "new-page-1",
+                text = "Page one stays exactly the same.",
+                metadata = mapOf(
+                    "source" to "manual.pdf",
+                    "pageNumber" to "1",
+                    "parentDocumentID" to "new-parent"
+                )
+            ),
+            EdgeDocument(
+                id = "new-page-2",
+                text = "Page two changed content.",
+                metadata = mapOf(
+                    "source" to "manual.pdf",
+                    "pageNumber" to "2",
+                    "parentDocumentID" to "new-parent"
+                )
+            )
+        )
+
+        val result = indexer.sync(
+            sourceId = "manual-source",
+            sourceIdentifier = "manual.pdf",
+            contentFingerprint = "whole-v2",
+            documents = secondDocuments,
+            collection = collection
+        )
+
+        assertTrue(
+            result is EdgeSourceSyncResult.Indexed
+        )
+
+        val indexed =
+            result as EdgeSourceSyncResult.Indexed
+
+        assertEquals(
+            1,
+            indexed.removedChunkCount
+        )
+        assertEquals(
+            1,
+            indexed.indexedDocumentCount
+        )
+        assertEquals(
+            "old-page-1",
+            indexed.source.documentStates
+                .first {
+                    it.key == "page:1"
+                }
+                .documentId
+        )
+        assertEquals(
+            "new-page-2",
+            indexed.source.documentStates
+                .first {
+                    it.key == "page:2"
+                }
+                .documentId
+        )
+        assertEquals(
+            3,
+            embeddingProvider.callCount.get()
+        )
+
+        directory.deleteRecursively()
+    }
+
 }
 
 private class CountingEmbeddingProvider :

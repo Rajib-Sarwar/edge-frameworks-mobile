@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - v0.4 automatic RAG orchestration through `EdgeRAG` on Swift and Kotlin.
 - `EdgeRAGRequest` configuration for collection/filter scoping, top-K, minimum score, and custom system prompts.
 - `EdgeRAGResult` returning the generated answer, retrieved results, and constructed local context.
+- Per-document source fingerprints and fine-grained incremental re-indexing for changed, added, and removed documents within a source.
 
 ## 0.3.0 - 2026-09-24
 

@@ -32,7 +32,7 @@ public struct AppleRichDocumentImporter: Sendable {
             throw AppleRichDocumentImportError.invalidHTML
         }
 
-        let text = normalizedText(attributed.string)
+        let text = Self.normalizedText(attributed.string)
 
         guard !text.isEmpty else {
             throw AppleRichDocumentImportError.noExtractableText

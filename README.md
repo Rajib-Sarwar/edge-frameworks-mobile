@@ -215,7 +215,8 @@ that retrieved context with Apple Foundation Models. No network service or cloud
 database is required for this flow.
 
 The iOS demo persists vector data in Application Support and can import UTF-8 text,
-Markdown, JSON, PDF, DOCX, and HTML documents through the system document picker.
+Markdown, JSON, PDF, DOCX, HTML, and text-bearing image files through the system
+document picker.
 PDF pages use PDFKit with Apple Vision OCR fallback for scanned pages. DOCX text is
 extracted from WordprocessingML inside the package, and HTML is converted to readable
 text before chunking and indexing.
@@ -250,7 +251,8 @@ accepts a question, displays the top retrieved chunks with similarity scores, an
 only that retrieved context to Gemini Nano for the final response.
 
 The Android demo persists vector data to app-local storage and can import UTF-8 text,
-Markdown, JSON, PDF, DOCX, and HTML documents from the system document picker. PDF
+Markdown, JSON, PDF, DOCX, HTML, and text-bearing image files from the system document
+picker. PDF
 pages use PdfBox-Android with bundled ML Kit OCR fallback. DOCX text is extracted from
 WordprocessingML and HTML is parsed with jsoup before chunking and indexing. The
 embedding model is packaged with the app during the build rather than downloaded by the
@@ -300,8 +302,8 @@ local vector store.
 
 v0.3 adds OCR fallback for scanned/image-only PDF pages plus DOCX and HTML ingestion.
 DOCX imports the main WordprocessingML document text while preserving source metadata;
-HTML is converted to readable text before chunking. Image ingestion outside PDF pages
-and richer document parsers remain future work.
+HTML is converted to readable text before chunking. Standalone image files are OCR'd
+locally before entering the same chunk/embed/persist pipeline.
 
 ## Scanned PDF / OCR ingestion
 
@@ -360,6 +362,38 @@ HTML parsing uses jsoup. Both formats preserve `source`, `mediaType`,
 
 The DOCX slice focuses on the main `word/document.xml` body. Headers, footers,
 comments, tracked-change semantics, and embedded media are not yet modeled separately.
+
+## Image ingestion
+
+v0.3 can ingest standalone image files as local knowledge by extracting visible text
+before chunking and embedding.
+
+```text
+JPEG / PNG / HEIC / TIFF
+        ↓
+platform image decoder
+        ↓
+on-device OCR
+        ↓
+EdgeDocument
+        ↓
+EdgeTextChunker
+        ↓
+text embeddings
+        ↓
+persistent local RAG
+```
+
+On iOS, image decoding uses ImageIO and OCR uses Apple Vision. On Android, image
+selection is decoded through ML Kit's `InputImage.fromFilePath` path and text is
+recognized by the bundled ML Kit Text Recognition model. Imported image documents keep
+`source`, `mediaType`, `documentFormat=image`, `extractionMethod=ocr`, and
+`ocrEngine` metadata.
+
+This v0.3 image slice is OCR-oriented ingestion for images that contain readable text,
+such as screenshots, receipts, forms, signs, and photographed notes. It does **not**
+yet provide semantic visual embeddings, image captioning, or general scene/object
+understanding for images with no text.
 
 ## Persistent source catalog and incremental indexing
 
@@ -459,6 +493,7 @@ edge-frameworks-mobile/
 │   ├── edge-frameworks-gemini-nano/
 │   ├── edge-frameworks-mediapipe-embeddings/
 │   ├── edge-frameworks-documents/
+│   ├── edge-frameworks-images/
 │   ├── edge-frameworks-pdf/
 │   └── examples/
 │       └── gemini-nano-app/
@@ -515,7 +550,8 @@ replacing its previous chunks, remove one document, remove by metadata, or clear
 collection without affecting other local knowledge.
 
 v0.3 now includes collection lifecycle, scanned-PDF OCR, and DOCX/HTML ingestion.
-Image ingestion and finer-grained per-document diffing remain upcoming work.
+The main planned v0.3 ingestion and source-management slices are now implemented;
+finer-grained per-document diffing and broader visual semantics remain future work.
 
 ## v0.3 progress
 
@@ -526,7 +562,7 @@ Image ingestion and finer-grained per-document diffing remain upcoming work.
 - [x] document re-indexing lifecycle
 - [x] scanned PDF / OCR ingestion
 - [x] DOCX / HTML ingestion
-- [ ] image ingestion
+- [x] image ingestion
 - [x] persistent collection catalog and source management
 - [x] automatic change detection / incremental re-indexing
 

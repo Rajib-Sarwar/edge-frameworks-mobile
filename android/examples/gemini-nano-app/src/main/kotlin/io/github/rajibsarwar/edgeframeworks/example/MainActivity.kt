@@ -29,6 +29,7 @@ import io.github.rajibsarwar.edgeframeworks.EdgeProviderRouter
 import io.github.rajibsarwar.edgeframeworks.EdgeRetriever
 import io.github.rajibsarwar.edgeframeworks.EdgeTextChunker
 import io.github.rajibsarwar.edgeframeworks.documents.AndroidRichDocumentImporter
+import io.github.rajibsarwar.edgeframeworks.images.AndroidImageDocumentImporter
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoAvailability
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoDownloadState
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoProvider
@@ -77,6 +78,9 @@ class MainActivity : Activity() {
     }
     private val richDocumentImporter =
         AndroidRichDocumentImporter()
+    private val imageDocumentImporter by lazy {
+        AndroidImageDocumentImporter(this)
+    }
     private val ragChunker = EdgeTextChunker(
         maxCharacters = 800,
         overlapCharacters = 120
@@ -93,6 +97,7 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         embeddingProvider?.close()
         pdfImporter.close()
+        imageDocumentImporter.close()
         scope.cancel()
         super.onDestroy()
     }
@@ -495,6 +500,7 @@ class MainActivity : Activity() {
                     "text/plain",
                     "text/markdown",
                     "text/html",
+                    "image/*",
                     "application/json",
                     "application/pdf",
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -550,6 +556,16 @@ class MainActivity : Activity() {
                     lowerName.endsWith(".html") ||
                     lowerName.endsWith(".htm")
 
+                val isImage =
+                    mimeType?.startsWith("image/") == true ||
+                    lowerName.endsWith(".jpg") ||
+                    lowerName.endsWith(".jpeg") ||
+                    lowerName.endsWith(".png") ||
+                    lowerName.endsWith(".heic") ||
+                    lowerName.endsWith(".heif") ||
+                    lowerName.endsWith(".tif") ||
+                    lowerName.endsWith(".tiff")
+
                 val sourceBytes =
                     contentResolver
                         .openInputStream(uri)
@@ -586,6 +602,16 @@ class MainActivity : Activity() {
                                     sourceName = name
                                 )
                             }
+                        )
+                    }
+
+                    isImage -> {
+                        listOf(
+                            imageDocumentImporter.importDocument(
+                                uri = uri,
+                                sourceName = name,
+                                mediaType = mimeType ?: "image/*"
+                            )
                         )
                     }
 

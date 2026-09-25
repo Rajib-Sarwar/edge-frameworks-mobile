@@ -175,6 +175,8 @@ final class DemoViewModel: ObservableObject {
                 ragStatus = "Extracting DOCX text locally…"
             } else if fileExtension == "html" || fileExtension == "htm" {
                 ragStatus = "Parsing HTML locally…"
+            } else if Self.imageExtensions.contains(fileExtension) {
+                ragStatus = "Recognizing image text locally…"
             } else {
                 ragStatus = "Reading local document…"
             }
@@ -211,6 +213,25 @@ final class DemoViewModel: ObservableObject {
                                 .importHTML(
                                     data: data,
                                     sourceName: sourceName
+                                )
+                        }.value
+                        documents = [document]
+
+                    case let imageExtension
+                    where Self.imageExtensions.contains(
+                        imageExtension
+                    ):
+                        let mediaType =
+                            Self.imageMediaType(
+                                for: imageExtension
+                            )
+
+                        let document = try await Task.detached {
+                            try AppleImageDocumentImporter()
+                                .importDocument(
+                                    data: data,
+                                    sourceName: sourceName,
+                                    mediaType: mediaType
                                 )
                         }.value
                         documents = [document]
@@ -469,6 +490,35 @@ final class DemoViewModel: ObservableObject {
         } catch {
             isRAGReady = false
             ragStatus = "Local embeddings unavailable: \(error)"
+        }
+    }
+
+    private static let imageExtensions: Set<String> = [
+        "jpg",
+        "jpeg",
+        "png",
+        "heic",
+        "heif",
+        "tif",
+        "tiff"
+    ]
+
+    private static func imageMediaType(
+        for fileExtension: String
+    ) -> String {
+        switch fileExtension {
+        case "jpg", "jpeg":
+            return "image/jpeg"
+        case "png":
+            return "image/png"
+        case "heic":
+            return "image/heic"
+        case "heif":
+            return "image/heif"
+        case "tif", "tiff":
+            return "image/tiff"
+        default:
+            return "image/*"
         }
     }
 

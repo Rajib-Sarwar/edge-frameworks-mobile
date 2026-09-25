@@ -43,7 +43,7 @@ The sample demonstrates:
 - framework-level error handling
 - local prompting through Apple Foundation Models
 - persistent local RAG with Apple Natural Language embeddings
-- TXT, Markdown, JSON, PDF, DOCX, and HTML import
+- TXT, Markdown, JSON, PDF, DOCX, HTML, and image OCR import
 - PDF page-aware retrieval metadata through PDFKit
 
 
@@ -66,3 +66,10 @@ the platform HTML importer before chunking and indexing.
 Imported documents are tracked in a local `EdgeFileKnowledgeCatalog`. The demo hashes
 the selected file before indexing; importing the same unchanged source skips embeddings,
 while changed content replaces the source's previously indexed chunks.
+
+
+## Image ingestion
+
+The demo accepts common image files and uses Apple Vision OCR to turn visible image text
+into an `EdgeDocument` before chunking, embedding, and persistence. This is text-focused
+image ingestion, not general image captioning or visual embeddings.

@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - DOCX and HTML ingestion on iOS and Android with document-format metadata preserved for RAG.
 - Persistent knowledge collection/source catalog on iOS and Android.
 - SHA-256 source fingerprinting and source-level incremental re-indexing that skips unchanged content.
+- Standalone image OCR ingestion on iOS with Apple Vision and on Android with bundled ML Kit Text Recognition.
 
 ## 0.2.0 - 2026-09-24
 

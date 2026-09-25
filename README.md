@@ -2,7 +2,7 @@
 
 Local-first AI infrastructure for building native mobile experiences across iOS and Android.
 
-> Status: v0.1.0 is released. v0.2.0 development is in progress.
+> Status: v0.2.0 is ready for release.
 
 ## Why this exists
 
@@ -178,10 +178,10 @@ top-K relevant chunks
 retrieves the most relevant chunks for a query. The in-memory vector store ranks
 results with cosine similarity and replaces existing entries by chunk identifier.
 
-The core remains provider-neutral. Real embedding backends now plug into this
-contract on both platforms: Apple Natural Language on iOS and MediaPipe Text Embedder
-on Android. Persistent vector storage, document parsing/chunking, and automatic prompt
-augmentation remain future layers.
+The core remains provider-neutral. Real embedding backends plug into this contract on
+both platforms: Apple Natural Language on iOS and MediaPipe Text Embedder on Android.
+Persistent vector storage, document chunking, and native document import are included
+in v0.2. Automatic prompt augmentation and richer ingestion formats remain future layers.
 
 ## iOS local RAG demo
 
@@ -198,7 +198,7 @@ Local chunks
    ↓
 Apple Natural Language sentence embeddings
    ↓
-EdgeInMemoryVectorStore
+EdgeFileVectorStore
    ↓
 cosine similarity / top-K retrieval
    ↓
@@ -209,7 +209,7 @@ Apple Foundation Models
 answer
 ```
 
-The demo indexes a small local knowledge set in memory, lets you ask a question, shows
+The demo indexes a small local knowledge set, lets you import local documents, shows
 the retrieved chunks and similarity scores, and then generates the final answer from
 that retrieved context with Apple Foundation Models. No network service or cloud vector
 database is required for this flow.
@@ -234,7 +234,7 @@ Local chunks
    ↓
 MediaPipe Text Embedder / Universal Sentence Encoder
    ↓
-EdgeInMemoryVectorStore
+EdgeFileVectorStore
    ↓
 cosine similarity / top-K retrieval
    ↓
@@ -380,7 +380,7 @@ edge-frameworks-mobile/
 - [x] add example apps
 - [x] add baseline latency and memory benchmarks
 
-## v0.2 progress
+## v0.2.0
 
 - [x] Apple Foundation Models structured output
 - [x] structured-output demo flow on iOS

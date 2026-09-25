@@ -2,11 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.2.0 - 2026-09-24
 
 ### Added
 
-- v0.2 development: Apple Foundation Models structured output and tool calling.
+- Apple Foundation Models structured output and tool calling.
 - Cross-platform tool abstraction.
 - Cross-platform local RAG primitives, on-device embedding providers, persistent vector storage, document chunking, and native document import.
 - Text-based PDF ingestion on iOS through PDFKit and on Android through PdfBox-Android.

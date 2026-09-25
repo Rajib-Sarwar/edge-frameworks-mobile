@@ -43,11 +43,8 @@ The sample demonstrates:
 - framework-level error handling
 - local prompting through Apple Foundation Models
 - persistent local RAG with Apple Natural Language embeddings
-- TXT, Markdown, JSON, and text-based PDF import
+- TXT, Markdown, JSON, PDF, DOCX, and HTML import
 - PDF page-aware retrieval metadata through PDFKit
-
-
-PDF ingestion in v0.2 extracts existing text only. Scanned/image-only PDFs require OCR and are intentionally out of scope.
 
 
 ## Scanned PDFs
@@ -55,3 +52,10 @@ PDF ingestion in v0.2 extracts existing text only. Scanned/image-only PDFs requi
 PDF pages without embedded text use an on-device Apple Vision OCR fallback before
 chunking and indexing. Retrieved chunks retain the PDF source and page metadata, plus
 whether text came from embedded PDF text or OCR.
+
+
+## DOCX and HTML
+
+DOCX files are unpacked locally and the main WordprocessingML document text is imported
+through `AppleRichDocumentImporter`. HTML files are converted to readable text with
+the platform HTML importer before chunking and indexing.

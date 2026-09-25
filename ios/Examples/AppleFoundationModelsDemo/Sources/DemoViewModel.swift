@@ -31,6 +31,7 @@ final class DemoViewModel: ObservableObject {
     private var agent: EdgeAgent?
     private var provider: AppleFoundationModelProvider?
     private var ragRetriever: EdgeRetriever?
+    private var incrementalIndexer: EdgeIncrementalIndexer?
     private let ragChunker = EdgeTextChunker(
         maxCharacters: 800,
         overlapCharacters: 120
@@ -161,7 +162,7 @@ final class DemoViewModel: ObservableObject {
             let data = try Data(contentsOf: url)
             let sourceName = url.lastPathComponent
 
-            guard let ragRetriever else {
+            guard let incrementalIndexer else {
                 ragStatus = "Local RAG is not ready."
                 return
             }
@@ -246,10 +247,31 @@ final class DemoViewModel: ObservableObject {
                         return
                     }
 
-                    ragStatus =
-                        "Embedding \(chunks.count) imported chunks locally…"
+                    let sourceIdentifier =
+                        url.absoluteString
+                    let sourceID =
+                        EdgeContentFingerprint.sha256(
+                            sourceIdentifier
+                        )
+                    let fingerprint =
+                        EdgeContentFingerprint.sha256(data)
 
-                    try await ragRetriever.index(chunks)
+                    ragStatus =
+                        "Checking source fingerprint and local index…"
+
+                    let syncResult =
+                        try await incrementalIndexer.sync(
+                            sourceID: sourceID,
+                            sourceIdentifier: sourceIdentifier,
+                            contentFingerprint: fingerprint,
+                            documents: documents,
+                            collection: Self.importedCollection,
+                            metadata: [
+                                "source": sourceName,
+                                "fileExtension": fileExtension
+                            ],
+                            chunker: ragChunker
+                        )
 
                     let ocrPages = documents.filter {
                         $0.metadata["extractionMethod"] == "ocr"
@@ -259,8 +281,19 @@ final class DemoViewModel: ObservableObject {
                         ? " · OCR used on \(ocrPages) page(s)"
                         : ""
 
-                    ragStatus =
-                        "Imported \(sourceName) · \(chunks.count) chunks persisted locally\(ocrNote)."
+                    switch syncResult {
+                    case .unchanged:
+                        ragStatus =
+                            "\(sourceName) is unchanged · skipped re-indexing."
+
+                    case .indexed(_, let removedChunks, _):
+                        let replaced = removedChunks > 0
+                            ? " · replaced \(removedChunks) old chunk(s)"
+                            : ""
+
+                        ragStatus =
+                            "Imported \(sourceName) · \(chunks.count) chunks persisted locally\(replaced)\(ocrNote)."
+                    }
                 } catch {
                     ragStatus = "Document import failed: \(error)"
                 }
@@ -410,15 +443,40 @@ final class DemoViewModel: ObservableObject {
                 vectorStore: vectorStore
             )
 
+            let catalog = try EdgeFileKnowledgeCatalog(
+                fileURL: applicationSupport
+                    .appendingPathComponent(
+                        "EdgeFrameworks",
+                        isDirectory: true
+                    )
+                    .appendingPathComponent(
+                        "knowledge-catalog.json"
+                    )
+            )
+
+            let incrementalIndexer =
+                EdgeIncrementalIndexer(
+                    retriever: retriever,
+                    catalog: catalog
+                )
+
             try await retriever.index(Self.demoChunks)
             ragRetriever = retriever
+            self.incrementalIndexer = incrementalIndexer
             isRAGReady = true
-            ragStatus = "Local RAG ready · demo knowledge indexed and vector store persists on device."
+            ragStatus =
+                "Local RAG ready · vectors and source catalog persist on device."
         } catch {
             isRAGReady = false
             ragStatus = "Local embeddings unavailable: \(error)"
         }
     }
+
+    private static let importedCollection =
+        EdgeKnowledgeCollection(
+            id: "imported-documents",
+            name: "Imported Documents"
+        )
 
     private static let demoChunks: [EdgeChunk] = [
         EdgeChunk(

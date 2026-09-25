@@ -18,7 +18,7 @@ sealed class EdgeSourceSyncResult {
 
     data class Indexed(
         val source: EdgeKnowledgeSource,
-        val removedDocumentCount: Int,
+        val removedChunkCount: Int,
         val indexedDocumentCount: Int
     ) : EdgeSourceSyncResult()
 }

@@ -40,6 +40,14 @@ final class ApplePDFDocumentImporterTests: XCTestCase {
             documents[0].metadata["parentDocumentID"],
             "travel"
         )
+        XCTAssertEqual(
+            documents[0].metadata["extractionMethod"],
+            "embeddedText"
+        )
+        XCTAssertEqual(
+            documents[0].metadata["ocrEngine"],
+            "none"
+        )
     }
 
     private func makeMinimalPDF(text: String) -> Data {

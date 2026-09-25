@@ -42,3 +42,9 @@ The sample demonstrates:
 - cancellation-aware framework APIs
 - framework-level error handling
 - local prompting through Apple Foundation Models
+- persistent local RAG with Apple Natural Language embeddings
+- TXT, Markdown, JSON, and text-based PDF import
+- PDF page-aware retrieval metadata through PDFKit
+
+
+PDF ingestion in v0.2 extracts existing text only. Scanned/image-only PDFs require OCR and are intentionally out of scope.

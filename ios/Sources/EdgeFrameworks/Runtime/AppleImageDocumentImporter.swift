@@ -47,7 +47,21 @@ public struct AppleImageDocumentImporter: Sendable {
             throw AppleImageDocumentImportError.noRecognizedText
         }
 
-        return EdgeDocument(
+        return Self.imageDocument(
+            documentID: documentID,
+            sourceName: sourceName,
+            mediaType: mediaType,
+            text: text
+        )
+    }
+
+    static func imageDocument(
+        documentID: String,
+        sourceName: String,
+        mediaType: String,
+        text: String
+    ) -> EdgeDocument {
+        EdgeDocument(
             id: documentID,
             text: text,
             metadata: [

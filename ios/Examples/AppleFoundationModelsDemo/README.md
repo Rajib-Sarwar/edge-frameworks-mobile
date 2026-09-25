@@ -48,3 +48,10 @@ The sample demonstrates:
 
 
 PDF ingestion in v0.2 extracts existing text only. Scanned/image-only PDFs require OCR and are intentionally out of scope.
+
+
+## Scanned PDFs
+
+PDF pages without embedded text use an on-device Apple Vision OCR fallback before
+chunking and indexing. Retrieved chunks retain the PDF source and page metadata, plus
+whether text came from embedded PDF text or OCR.

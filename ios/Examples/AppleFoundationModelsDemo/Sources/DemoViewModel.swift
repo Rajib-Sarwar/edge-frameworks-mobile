@@ -159,27 +159,44 @@ final class DemoViewModel: ObservableObject {
 
         do {
             let data = try Data(contentsOf: url)
+            let sourceName = url.lastPathComponent
+            let documents: [EdgeDocument]
 
-            guard let text = String(
-                data: data,
-                encoding: .utf8
-            ) else {
-                ragStatus = "Import failed · document is not UTF-8 text."
-                return
+            if url.pathExtension.lowercased() == "pdf" {
+                documents = try ApplePDFDocumentImporter()
+                    .importDocument(
+                        data: data,
+                        sourceName: sourceName
+                    )
+            } else {
+                guard let text = String(
+                    data: data,
+                    encoding: .utf8
+                ) else {
+                    ragStatus =
+                        "Import failed · document is not UTF-8 text."
+                    return
+                }
+
+                documents = [
+                    EdgeDocument(
+                        id: UUID().uuidString,
+                        text: text,
+                        metadata: [
+                            "source": sourceName,
+                            "mediaType": "text/plain"
+                        ]
+                    )
+                ]
             }
 
-            let document = EdgeDocument(
-                id: UUID().uuidString,
-                text: text,
-                metadata: [
-                    "source": url.lastPathComponent
-                ]
-            )
-
-            let chunks = ragChunker.chunk(document)
+            let chunks = documents.flatMap {
+                ragChunker.chunk($0)
+            }
 
             guard !chunks.isEmpty else {
-                ragStatus = "Import skipped · document contains no text."
+                ragStatus =
+                    "Import skipped · document contains no extractable text."
                 return
             }
 
@@ -188,14 +205,17 @@ final class DemoViewModel: ObservableObject {
                 return
             }
 
-            ragStatus = "Embedding \(chunks.count) imported chunks locally…"
+            ragStatus =
+                "Embedding \(chunks.count) imported chunks locally…"
 
             Task {
                 do {
                     try await ragRetriever.index(chunks)
-                    ragStatus = "Imported \(url.lastPathComponent) · \(chunks.count) chunks persisted locally."
+                    ragStatus =
+                        "Imported \(sourceName) · \(chunks.count) chunks persisted locally."
                 } catch {
-                    ragStatus = "Document indexing failed: \(error)"
+                    ragStatus =
+                        "Document indexing failed: \(error)"
                 }
             }
         } catch {
@@ -235,7 +255,15 @@ final class DemoViewModel: ObservableObject {
                         let score = result.score.formatted(
                             .number.precision(.fractionLength(3))
                         )
-                        return "\(index + 1). [\(score)] \(result.chunk.text)"
+                        let source =
+                            result.chunk.metadata["source"] ?? "local"
+                        let page = result.chunk.metadata["pageNumber"]
+                            .map { " · page \($0)" } ?? ""
+
+                        return """
+                        \(index + 1). [\(score)] \(source)\(page)
+                        \(result.chunk.text)
+                        """
                     }
                     .joined(separator: "\n\n")
 

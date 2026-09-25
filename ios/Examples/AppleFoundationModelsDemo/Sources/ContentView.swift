@@ -88,7 +88,7 @@ struct ContentView: View {
                     Text(model.ragStatus)
                         .foregroundStyle(.secondary)
 
-                    Button("Import text document") {
+                    Button("Import document") {
                         isImportingDocument = true
                     }
                     .disabled(model.isRAGRunning)
@@ -139,6 +139,7 @@ struct ContentView: View {
                 allowedContentTypes: [
                     .plainText,
                     .json,
+                    .pdf,
                     UTType(filenameExtension: "md") ?? .plainText
                 ],
                 allowsMultipleSelection: false

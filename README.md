@@ -2,7 +2,7 @@
 
 Local-first AI infrastructure for building native mobile experiences across iOS and Android.
 
-> Status: v0.2.0 is released. v0.3.0 development is in progress.
+> Status: v0.3.0 is ready for release.
 
 ## Why this exists
 
@@ -180,8 +180,9 @@ results with cosine similarity and replaces existing entries by chunk identifier
 
 The core remains provider-neutral. Real embedding backends plug into this contract on
 both platforms: Apple Natural Language on iOS and MediaPipe Text Embedder on Android.
-Persistent vector storage, document chunking, and native document import are included
-in v0.2. Automatic prompt augmentation and richer ingestion formats remain future layers.
+Persistent vector storage, document chunking, native document import, collection
+management, source tracking, OCR ingestion, and source-level incremental re-indexing are
+now part of the framework.
 
 ## iOS local RAG demo
 
@@ -288,17 +289,17 @@ customized per app.
 
 `EdgeFileVectorStore` persists chunks and their embedding vectors to app-local storage.
 The iOS implementation uses an atomically written JSON file; Android uses a compact
-binary file with an atomic temp-file replacement. Reopening the store restores the
+binary file with temp-file replacement. Reopening the store restores the
 previously indexed vectors, so imported knowledge survives app restarts.
 
 `EdgeRetriever` can now index either prebuilt chunks or an `EdgeDocument` together
 with an `EdgeTextChunker`.
 
-The example apps add native document pickers for plain text, Markdown, JSON, and
-text-based PDF files. PDF pages are imported as local documents before chunking, with
-`source`, `pageNumber`, `pageCount`, and `parentDocumentID` metadata preserved
-through retrieval. Imported content is chunked, embedded on-device, and persisted in the
-local vector store.
+The example apps add native document pickers for plain text, Markdown, JSON, PDF, DOCX,
+HTML, and text-bearing image files. PDF pages and other imported sources are converted
+to `EdgeDocument` values before chunking. Source and format metadata are preserved
+through retrieval, and imported content is embedded on-device and persisted in the local
+vector store.
 
 v0.3 adds OCR fallback for scanned/image-only PDF pages plus DOCX and HTML ingestion.
 DOCX imports the main WordprocessingML document text while preserving source metadata;
@@ -549,11 +550,11 @@ EdgeVectorStore
 replacing its previous chunks, remove one document, remove by metadata, or clear a
 collection without affecting other local knowledge.
 
-v0.3 now includes collection lifecycle, scanned-PDF OCR, and DOCX/HTML ingestion.
-The main planned v0.3 ingestion and source-management slices are now implemented;
-finer-grained per-document diffing and broader visual semantics remain future work.
+v0.3.0 includes collection lifecycle, scanned-PDF OCR, DOCX/HTML ingestion, standalone
+image OCR, persistent source catalogs, and source-level incremental re-indexing.
+Finer-grained diffing and broader visual semantics remain future work.
 
-## v0.3 progress
+## v0.3.0
 
 - [x] knowledge collection model
 - [x] collection-scoped retrieval

@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.3.0 - 2026-09-24
 
 ### Added
 
@@ -15,6 +15,12 @@ All notable changes to this project will be documented in this file.
 - Persistent knowledge collection/source catalog on iOS and Android.
 - SHA-256 source fingerprinting and source-level incremental re-indexing that skips unchanged content.
 - Standalone image OCR ingestion on iOS with Apple Vision and on Android with bundled ML Kit Text Recognition.
+
+### Notes
+
+- Image ingestion in v0.3 is OCR-focused; semantic visual embeddings, image captioning, and general scene understanding are not included.
+- Incremental re-indexing is source-level; any content change re-indexes that source as a unit rather than diffing individual pages or sections.
+- DOCX ingestion focuses on the main `word/document.xml` body; headers, footers, comments, tracked-change semantics, and embedded media are not modeled separately.
 
 ## 0.2.0 - 2026-09-24
 

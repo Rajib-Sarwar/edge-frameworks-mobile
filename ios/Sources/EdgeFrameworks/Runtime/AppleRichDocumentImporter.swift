@@ -1,5 +1,4 @@
 import Foundation
-import FoundationXML
 import ZIPFoundation
 
 #if canImport(AppKit)

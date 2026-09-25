@@ -120,7 +120,10 @@ class EdgeFileKnowledgeCatalog(
                         "Invalid Edge knowledge catalog file"
                     }
 
-                    require(version == VERSION) {
+                    require(
+                        version == 1 ||
+                        version == VERSION
+                    ) {
                         "Unsupported Edge knowledge catalog version: $version"
                     }
 
@@ -147,6 +150,23 @@ class EdgeFileKnowledgeCatalog(
                                 }
                             }
 
+                        val documentStates =
+                            if (version >= 2) {
+                                buildList {
+                                    repeat(input.readInt()) {
+                                        add(
+                                            EdgeSourceDocumentState(
+                                                key = input.readUTF(),
+                                                documentId = input.readUTF(),
+                                                contentFingerprint = input.readUTF()
+                                            )
+                                        )
+                                    }
+                                }
+                            } else {
+                                emptyList()
+                            }
+
                         val metadata =
                             input.readStringMap()
 
@@ -159,6 +179,7 @@ class EdgeFileKnowledgeCatalog(
                             sourceIdentifier = sourceIdentifier,
                             contentFingerprint = contentFingerprint,
                             documentIds = documentIds,
+                            documentStates = documentStates,
                             metadata = metadata,
                             indexedAtMilliseconds = indexedAtMilliseconds
                         )
@@ -210,6 +231,15 @@ class EdgeFileKnowledgeCatalog(
                     output::writeUTF
                 )
 
+                output.writeInt(
+                    source.documentStates.size
+                )
+                source.documentStates.forEach { state ->
+                    output.writeUTF(state.key)
+                    output.writeUTF(state.documentId)
+                    output.writeUTF(state.contentFingerprint)
+                }
+
                 output.writeStringMap(
                     source.metadata
                 )
@@ -259,6 +289,6 @@ class EdgeFileKnowledgeCatalog(
 
     private companion object {
         const val MAGIC = 0x45444341
-        const val VERSION = 1
+        const val VERSION = 2
     }
 }

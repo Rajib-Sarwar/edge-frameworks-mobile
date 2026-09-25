@@ -47,7 +47,8 @@ public actor EdgeFileVectorStore: EdgeVectorStore {
 
     public func search(
         query: EdgeEmbedding,
-        topK: Int
+        topK: Int,
+        filter: EdgeVectorFilter?
     ) async throws -> [EdgeSearchResult] {
         guard topK > 0 else { return [] }
 
@@ -55,6 +56,9 @@ public actor EdgeFileVectorStore: EdgeVectorStore {
         results.reserveCapacity(records.count)
 
         for record in records.values {
+            if let filter, !filter.matches(record.chunk) {
+                continue
+            }
             let score = try EdgeVectorMath.cosineSimilarity(
                 query,
                 record.embedding
@@ -78,6 +82,24 @@ public actor EdgeFileVectorStore: EdgeVectorStore {
                 }
                 .prefix(topK)
         )
+    }
+
+    public func remove(
+        filter: EdgeVectorFilter
+    ) async throws -> Int {
+        let matchingIDs = records
+            .filter { filter.matches($0.value.chunk) }
+            .map(\.key)
+
+        for id in matchingIDs {
+            records.removeValue(forKey: id)
+        }
+
+        if !matchingIDs.isEmpty {
+            try persist()
+        }
+
+        return matchingIDs.count
     }
 
     public func removeAll() async {

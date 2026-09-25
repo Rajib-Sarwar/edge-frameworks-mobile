@@ -29,7 +29,8 @@ public actor EdgeInMemoryVectorStore: EdgeVectorStore {
 
     public func search(
         query: EdgeEmbedding,
-        topK: Int
+        topK: Int,
+        filter: EdgeVectorFilter?
     ) async throws -> [EdgeSearchResult] {
         guard topK > 0 else { return [] }
 
@@ -37,6 +38,9 @@ public actor EdgeInMemoryVectorStore: EdgeVectorStore {
         results.reserveCapacity(entries.count)
 
         for entry in entries.values {
+            if let filter, !filter.matches(entry.chunk) {
+                continue
+            }
             let score = try EdgeVectorMath.cosineSimilarity(
                 query,
                 entry.embedding
@@ -59,6 +63,20 @@ public actor EdgeInMemoryVectorStore: EdgeVectorStore {
                 }
                 .prefix(topK)
         )
+    }
+
+    public func remove(
+        filter: EdgeVectorFilter
+    ) async throws -> Int {
+        let matchingIDs = entries
+            .filter { filter.matches($0.value.chunk) }
+            .map(\.key)
+
+        for id in matchingIDs {
+            entries.removeValue(forKey: id)
+        }
+
+        return matchingIDs.count
     }
 
     public func removeAll() async {

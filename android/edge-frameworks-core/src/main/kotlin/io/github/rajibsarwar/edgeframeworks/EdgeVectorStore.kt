@@ -8,8 +8,13 @@ interface EdgeVectorStore {
 
     suspend fun search(
         query: EdgeEmbedding,
-        topK: Int
+        topK: Int,
+        filter: EdgeVectorFilter? = null
     ): List<EdgeSearchResult>
+
+    suspend fun remove(
+        filter: EdgeVectorFilter
+    ): Int
 
     suspend fun removeAll()
 }

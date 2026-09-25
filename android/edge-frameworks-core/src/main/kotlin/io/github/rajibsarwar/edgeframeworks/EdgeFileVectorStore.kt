@@ -47,12 +47,17 @@ class EdgeFileVectorStore(
 
     override suspend fun search(
         query: EdgeEmbedding,
-        topK: Int
+        topK: Int,
+        filter: EdgeVectorFilter?
     ): List<EdgeSearchResult> {
         if (topK <= 0) return emptyList()
 
         val snapshot = synchronized(lock) {
-            records.values.toList()
+            records.values
+                .filter { record ->
+                    filter?.matches(record.chunk) ?: true
+                }
+                .toList()
         }
 
         return snapshot
@@ -70,6 +75,27 @@ class EdgeFileVectorStore(
                     .thenBy { it.chunk.id }
             )
             .take(topK)
+    }
+
+    override suspend fun remove(
+        filter: EdgeVectorFilter
+    ): Int {
+        return synchronized(lock) {
+            val matchingIds = records
+                .filterValues { record ->
+                    filter.matches(record.chunk)
+                }
+                .keys
+                .toList()
+
+            matchingIds.forEach(records::remove)
+
+            if (matchingIds.isNotEmpty()) {
+                persist()
+            }
+
+            matchingIds.size
+        }
     }
 
     override suspend fun removeAll() {

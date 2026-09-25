@@ -2,7 +2,7 @@
 
 Local-first AI infrastructure for building native mobile experiences across iOS and Android.
 
-> Status: v0.2.0 is ready for release.
+> Status: v0.2.0 is released. v0.3.0 development is in progress.
 
 ## Why this exists
 
@@ -393,6 +393,46 @@ edge-frameworks-mobile/
 - [x] document import + chunking
 - [x] persistent local vector storage
 - [x] text-based PDF ingestion with page metadata
+
+## Knowledge collections
+
+v0.3 starts by adding source lifecycle and collection-scoped RAG. Both platforms now
+share an `EdgeKnowledgeCollection` model plus `EdgeVectorFilter` for filtering and
+removing indexed chunks.
+
+```text
+EdgeKnowledgeCollection
+        ↓
+document import / chunking
+        ↓
+collection metadata on each chunk
+        ↓
+EdgeVectorStore
+   ├── filtered search
+   ├── remove document
+   ├── clear collection
+   └── persistent updates
+```
+
+`EdgeRetriever` can index and retrieve within a collection, re-index a document by
+replacing its previous chunks, remove one document, remove by metadata, or clear a
+collection without affecting other local knowledge.
+
+This is the first v0.3 slice. OCR/scanned PDFs, DOCX/HTML/image ingestion, richer
+collection persistence, and automatic source change detection remain upcoming work.
+
+## v0.3 progress
+
+- [x] knowledge collection model
+- [x] collection-scoped retrieval
+- [x] vector metadata filters
+- [x] document removal and collection clearing
+- [x] document re-indexing lifecycle
+- [ ] scanned PDF / OCR ingestion
+- [ ] DOCX / HTML ingestion
+- [ ] image ingestion
+- [ ] persistent collection catalog and source management
+- [ ] automatic change detection / incremental re-indexing
 
 ## Principles
 

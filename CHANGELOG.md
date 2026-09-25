@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- v0.3 knowledge collections through `EdgeKnowledgeCollection`.
+- Cross-platform vector filtering by document, collection, and metadata.
+- Collection-scoped retrieval, document removal, collection clearing, and document re-indexing.
+- Persistent vector-store removal support on iOS and Android.
+
 ## 0.2.0 - 2026-09-24
 
 ### Added

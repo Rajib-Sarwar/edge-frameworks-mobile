@@ -39,3 +39,19 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+
+      - name: Generate Equipory project
+        working-directory: ios/Apps/Equipory
+        run: xcodegen generate
+
+      - name: Build Equipory
+        working-directory: ios/Apps/Equipory
+        run: |
+          xcodebuild \
+            -project Equipory.xcodeproj \
+            -scheme Equipory \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build

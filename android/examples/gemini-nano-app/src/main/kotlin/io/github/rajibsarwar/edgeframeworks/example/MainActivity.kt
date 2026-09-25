@@ -19,6 +19,11 @@ import io.github.rajibsarwar.edgeframeworks.EdgeGenerationEvent
 import io.github.rajibsarwar.edgeframeworks.EdgeChunk
 import io.github.rajibsarwar.edgeframeworks.EdgeDocument
 import io.github.rajibsarwar.edgeframeworks.EdgeFileVectorStore
+import io.github.rajibsarwar.edgeframeworks.EdgeSourceSyncResult
+import io.github.rajibsarwar.edgeframeworks.EdgeKnowledgeCollection
+import io.github.rajibsarwar.edgeframeworks.EdgeIncrementalIndexer
+import io.github.rajibsarwar.edgeframeworks.EdgeFileKnowledgeCatalog
+import io.github.rajibsarwar.edgeframeworks.EdgeContentFingerprint
 import io.github.rajibsarwar.edgeframeworks.EdgeGenerationRequest
 import io.github.rajibsarwar.edgeframeworks.EdgeProviderRouter
 import io.github.rajibsarwar.edgeframeworks.EdgeRetriever
@@ -66,6 +71,7 @@ class MainActivity : Activity() {
     private var ragReady = false
     private var embeddingProvider: MediaPipeTextEmbeddingProvider? = null
     private var ragRetriever: EdgeRetriever? = null
+    private var incrementalIndexer: EdgeIncrementalIndexer? = null
     private val pdfImporter by lazy {
         AndroidPDFDocumentImporter(this)
     }
@@ -449,13 +455,26 @@ class MainActivity : Activity() {
                     )
                 )
 
+                val catalog =
+                    EdgeFileKnowledgeCatalog(
+                        File(
+                            filesDir,
+                            "edge-frameworks/knowledge-catalog.bin"
+                        )
+                    )
+
                 retriever.index(demoChunks)
 
                 embeddingProvider = embedder
                 ragRetriever = retriever
+                incrementalIndexer =
+                    EdgeIncrementalIndexer(
+                        retriever = retriever,
+                        catalog = catalog
+                    )
                 ragReady = true
                 ragStatusView.text =
-                    "Local RAG ready · demo knowledge indexed and vectors persist on device."
+                    "Local RAG ready · vectors and source catalog persist on device."
                 setBusy(false)
             } catch (error: Exception) {
                 ragReady = false
@@ -531,6 +550,14 @@ class MainActivity : Activity() {
                     lowerName.endsWith(".html") ||
                     lowerName.endsWith(".htm")
 
+                val sourceBytes =
+                    contentResolver
+                        .openInputStream(uri)
+                        ?.use { it.readBytes() }
+                        ?: error(
+                            "Unable to read selected document"
+                        )
+
                 val documents = when {
                     isPdf -> {
                         pdfImporter.importDocument(
@@ -541,14 +568,8 @@ class MainActivity : Activity() {
                     }
 
                     isDocx -> {
-                        val input = contentResolver
-                            .openInputStream(uri)
-                            ?: error(
-                                "Unable to read selected DOCX"
-                            )
-
                         listOf(
-                            input.use {
+                            sourceBytes.inputStream().use {
                                 richDocumentImporter.importDocx(
                                     inputStream = it,
                                     sourceName = name
@@ -558,14 +579,8 @@ class MainActivity : Activity() {
                     }
 
                     isHtml -> {
-                        val input = contentResolver
-                            .openInputStream(uri)
-                            ?: error(
-                                "Unable to read selected HTML"
-                            )
-
                         listOf(
-                            input.use {
+                            sourceBytes.inputStream().use {
                                 richDocumentImporter.importHtml(
                                     inputStream = it,
                                     sourceName = name
@@ -575,12 +590,9 @@ class MainActivity : Activity() {
                     }
 
                     else -> {
-                        val text = contentResolver
-                            .openInputStream(uri)
-                            ?.bufferedReader()
-                            ?.use { it.readText() }
-                            ?: error(
-                                "Unable to read selected document"
+                        val text =
+                            sourceBytes.toString(
+                                Charsets.UTF_8
                             )
 
                         listOf(
@@ -606,13 +618,34 @@ class MainActivity : Activity() {
                     return@launch
                 }
 
-                val retriever = ragRetriever
+                val indexer = incrementalIndexer
                     ?: error("Local RAG is not ready")
 
-                ragStatusView.text =
-                    "Embedding ${chunks.size} imported chunks locally…"
+                val sourceIdentifier =
+                    uri.toString()
+                val sourceId =
+                    EdgeContentFingerprint.sha256(
+                        sourceIdentifier
+                    )
+                val fingerprint =
+                    EdgeContentFingerprint.sha256(
+                        sourceBytes
+                    )
 
-                retriever.index(chunks)
+                ragStatusView.text =
+                    "Checking source fingerprint and local index…"
+
+                val syncResult = indexer.sync(
+                    sourceId = sourceId,
+                    sourceIdentifier = sourceIdentifier,
+                    contentFingerprint = fingerprint,
+                    documents = documents,
+                    collection = importedCollection,
+                    metadata = mapOf(
+                        "source" to name
+                    ),
+                    chunker = ragChunker
+                )
 
                 val ocrPages = documents.count {
                     it.metadata["extractionMethod"] == "ocr"
@@ -624,8 +657,25 @@ class MainActivity : Activity() {
                     ""
                 }
 
-                ragStatusView.text =
-                    "Imported $name · ${chunks.size} chunks persisted locally$ocrNote."
+                ragStatusView.text = when (
+                    syncResult
+                ) {
+                    is EdgeSourceSyncResult.Unchanged ->
+                        "$name is unchanged · skipped re-indexing."
+
+                    is EdgeSourceSyncResult.Indexed -> {
+                        val replaced =
+                            if (
+                                syncResult.removedChunkCount > 0
+                            ) {
+                                " · replaced ${syncResult.removedChunkCount} old chunk(s)"
+                            } else {
+                                ""
+                            }
+
+                        "Imported $name · ${chunks.size} chunks persisted locally$replaced$ocrNote."
+                    }
+                }
             } catch (error: Exception) {
                 ragStatusView.text =
                     "Document import failed: ${error.message ?: error::class.java.simpleName}"
@@ -759,6 +809,12 @@ class MainActivity : Activity() {
         ragButton.isEnabled = generationReady && ragReady && !isBusy
         importButton.isEnabled = ragReady && !isBusy
     }
+
+    private val importedCollection =
+        EdgeKnowledgeCollection(
+            id = "imported-documents",
+            name = "Imported Documents"
+        )
 
     private val demoChunks = listOf(
         EdgeChunk(

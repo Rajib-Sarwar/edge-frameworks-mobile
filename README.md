@@ -361,6 +361,41 @@ HTML parsing uses jsoup. Both formats preserve `source`, `mediaType`,
 The DOCX slice focuses on the main `word/document.xml` body. Headers, footers,
 comments, tracked-change semantics, and embedded media are not yet modeled separately.
 
+## Persistent source catalog and incremental indexing
+
+v0.3 now includes a durable catalog for knowledge collections and imported sources, plus
+content-fingerprint-based change detection.
+
+```text
+local source bytes / text
+        ↓
+SHA-256 fingerprint
+        ↓
+EdgeKnowledgeSource
+        ↓
+EdgeFileKnowledgeCatalog
+        ↓
+fingerprint unchanged?
+   ├── yes → skip embedding / indexing
+   └── no  → remove previous source chunks
+             re-chunk / re-embed / persist
+             update source catalog
+```
+
+`EdgeKnowledgeSource` records the collection, logical source identifier, content
+fingerprint, indexed document IDs, metadata, and last-indexed timestamp.
+`EdgeFileKnowledgeCatalog` persists collections and sources locally and restores them
+after app restart.
+
+`EdgeIncrementalIndexer` compares the incoming source fingerprint with the persisted
+catalog. Unchanged sources return `unchanged` without re-running the embedding provider.
+Changed sources remove their previously indexed chunks, index the new documents, and
+replace the catalog entry. Removing a source or collection also removes the associated
+vector-store content.
+
+This first incremental implementation is source-level: any content change re-indexes that
+source as a unit. Fine-grained per-page/per-section diffing can be layered on later.
+
 ## Example apps
 
 Two small example apps exercise the same framework architecture on each platform:
@@ -480,8 +515,7 @@ replacing its previous chunks, remove one document, remove by metadata, or clear
 collection without affecting other local knowledge.
 
 v0.3 now includes collection lifecycle, scanned-PDF OCR, and DOCX/HTML ingestion.
-Image ingestion, richer collection persistence, and automatic source change detection
-remain upcoming work.
+Image ingestion and finer-grained per-document diffing remain upcoming work.
 
 ## v0.3 progress
 
@@ -493,8 +527,8 @@ remain upcoming work.
 - [x] scanned PDF / OCR ingestion
 - [x] DOCX / HTML ingestion
 - [ ] image ingestion
-- [ ] persistent collection catalog and source management
-- [ ] automatic change detection / incremental re-indexing
+- [x] persistent collection catalog and source management
+- [x] automatic change detection / incremental re-indexing
 
 ## Principles
 

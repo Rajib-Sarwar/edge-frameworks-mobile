@@ -68,3 +68,10 @@ or OCR.
 
 The `edge-frameworks-documents` module extracts DOCX text from WordprocessingML and
 uses jsoup for HTML-to-text parsing before local chunking, embedding, and persistence.
+
+
+## Persistent sources
+
+Imported documents are tracked in a local `EdgeFileKnowledgeCatalog`. The demo hashes
+the selected file before indexing; importing the same unchanged source skips embeddings,
+while changed content replaces the source's previously indexed chunks.

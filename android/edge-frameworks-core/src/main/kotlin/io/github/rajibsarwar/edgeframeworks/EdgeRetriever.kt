@@ -106,10 +106,20 @@ class EdgeRetriever(
         documentId: String,
         collection: EdgeKnowledgeCollection? = null
     ): Int {
+        return remove(
+            documentId = documentId,
+            collectionId = collection?.id
+        )
+    }
+
+    suspend fun remove(
+        documentId: String,
+        collectionId: String?
+    ): Int {
         return vectorStore.remove(
             EdgeVectorFilter(
                 documentId = documentId,
-                collectionId = collection?.id
+                collectionId = collectionId
             )
         )
     }

@@ -59,3 +59,10 @@ whether text came from embedded PDF text or OCR.
 DOCX files are unpacked locally and the main WordprocessingML document text is imported
 through `AppleRichDocumentImporter`. HTML files are converted to readable text with
 the platform HTML importer before chunking and indexing.
+
+
+## Persistent sources
+
+Imported documents are tracked in a local `EdgeFileKnowledgeCatalog`. The demo hashes
+the selected file before indexing; importing the same unchanged source skips embeddings,
+while changed content replaces the source's previously indexed chunks.

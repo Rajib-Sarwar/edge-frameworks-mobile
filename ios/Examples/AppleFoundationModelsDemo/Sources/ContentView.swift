@@ -141,6 +141,7 @@ struct ContentView: View {
                     .json,
                     .pdf,
                     .html,
+                    .image,
                     UTType(filenameExtension: "md") ?? .plainText,
                     UTType(filenameExtension: "docx")
                         ?? .data

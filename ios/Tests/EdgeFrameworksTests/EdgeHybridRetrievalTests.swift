@@ -47,6 +47,66 @@ final class EdgeHybridRetrievalTests: XCTestCase {
         )
     }
 
+    func testHybridRetrievalPrioritizesIdentifierInsideNaturalLanguageQuery() async throws {
+        let retriever = EdgeRetriever(
+            embeddingProvider:
+                NaturalLanguageIdentifierEmbeddingProvider(),
+            vectorStore:
+                EdgeInMemoryVectorStore()
+        )
+
+        try await retriever.index(
+            [
+                EdgeChunk(
+                    id: "generic-indoor-outdoor",
+                    documentID: "manual-page-9",
+                    text:
+                        "Indoor and outdoor unit installation model selection guidance."
+                ),
+                EdgeChunk(
+                    id: "generic-outdoor",
+                    documentID: "manual-page-19",
+                    text:
+                        "Outdoor unit model wiring installation."
+                ),
+                EdgeChunk(
+                    id: "generic-indoor",
+                    documentID: "manual-page-12",
+                    text:
+                        "Indoor unit installation safety."
+                ),
+                EdgeChunk(
+                    id: "exact-model",
+                    documentID: "manual-page-1",
+                    text:
+                        "INDOOR UNITS Type Model DCP09NWB11S DHP09NWB11S DCP12NWB11S."
+                )
+            ]
+        )
+
+        let query =
+            "Is model DCP09NWB11S an indoor or outdoor unit?"
+
+        let vectorOnly = try await retriever.retrieve(
+            query: query,
+            topK: 1
+        )
+
+        let hybrid = try await retriever.retrieveHybrid(
+            query: query,
+            topK: 1
+        )
+
+        XCTAssertNotEqual(
+            vectorOnly.first?.chunk.id,
+            "exact-model"
+        )
+        XCTAssertEqual(
+            hybrid.first?.chunk.id,
+            "exact-model"
+        )
+    }
+
     func testLexicalSearchHonorsCollectionFilter() async throws {
         let store = EdgeInMemoryVectorStore()
 
@@ -98,6 +158,37 @@ private struct HybridTestEmbeddingProvider:
     ) async throws -> EdgeEmbedding {
         if text.lowercased().contains(
             "fault code e31"
+        ) {
+            return EdgeEmbedding(
+                values: [0, 1]
+            )
+        }
+
+        return EdgeEmbedding(
+            values: [1, 0]
+        )
+    }
+}
+
+
+private struct NaturalLanguageIdentifierEmbeddingProvider:
+    EdgeEmbeddingProvider
+{
+    func embed(
+        _ text: String
+    ) async throws -> EdgeEmbedding {
+        let normalized = text.lowercased()
+
+        if normalized.hasPrefix(
+            "is model dcp09nwb11s"
+        ) {
+            return EdgeEmbedding(
+                values: [1, 0]
+            )
+        }
+
+        if normalized.contains(
+            "dcp09nwb11s"
         ) {
             return EdgeEmbedding(
                 values: [0, 1]

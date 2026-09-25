@@ -57,3 +57,11 @@ The first Gradle build needs network access to fetch the embedding model asset. 
 
 
 PDF ingestion in v0.2 extracts existing text only. Scanned/image-only PDFs require OCR and are intentionally out of scope.
+
+
+## Scanned PDFs
+
+PDF pages without embedded text are rendered locally with PdfBox-Android and passed to
+the bundled ML Kit Text Recognition model before chunking and indexing. Retrieved chunks
+retain the PDF source and page metadata, plus whether text came from embedded PDF text
+or OCR.

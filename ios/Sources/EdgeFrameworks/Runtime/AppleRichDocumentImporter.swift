@@ -2,6 +2,12 @@ import Foundation
 import FoundationXML
 import ZIPFoundation
 
+#if canImport(AppKit)
+import AppKit
+#elseif canImport(UIKit)
+import UIKit
+#endif
+
 public enum AppleRichDocumentImportError: Error, Equatable, Sendable {
     case invalidHTML
     case invalidDOCX

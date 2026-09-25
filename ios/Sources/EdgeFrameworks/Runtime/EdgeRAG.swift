@@ -1,3 +1,5 @@
+import Foundation
+
 public struct EdgeRAG: Sendable {
     public static let defaultSystemPrompt = """
     Answer using only the supplied local context.
@@ -39,24 +41,28 @@ public struct EdgeRAG: Sendable {
     ) async throws -> EdgeRAGResult {
         try Task.checkCancellation()
 
+        let totalStart =
+            DispatchTime.now().uptimeNanoseconds
+
         let filter = combinedFilter(
             collection: request.collection,
             filter: request.filter
         )
 
-        let retrieved = try await retriever.retrieve(
-            query: request.query,
-            filter: filter,
-            topK: request.topK
-        )
+        let measuredRetrieval =
+            try await retriever.retrieveMeasured(
+                query: request.query,
+                filter: filter,
+                topK: request.topK
+            )
 
         let filtered = if let minimumScore =
             request.minimumScore {
-            retrieved.filter {
+            measuredRetrieval.results.filter {
                 $0.score >= minimumScore
             }
         } else {
-            retrieved
+            measuredRetrieval.results
         }
 
         let context = Self.buildContext(
@@ -64,6 +70,9 @@ public struct EdgeRAG: Sendable {
         )
 
         try Task.checkCancellation()
+
+        let generationStart =
+            DispatchTime.now().uptimeNanoseconds
 
         let response = try await agent.run(
             EdgeGenerationRequest(
@@ -77,10 +86,29 @@ public struct EdgeRAG: Sendable {
             )
         )
 
+        let generationEnd =
+            DispatchTime.now().uptimeNanoseconds
+
         return EdgeRAGResult(
             answer: response.text,
             retrievedResults: filtered,
-            context: context
+            context: context,
+            metrics: EdgeRAGMetrics(
+                retrieval: measuredRetrieval.metrics,
+                generationMilliseconds:
+                    Self.milliseconds(
+                        from: generationStart,
+                        to: generationEnd
+                    ),
+                totalMilliseconds:
+                    Self.milliseconds(
+                        from: totalStart,
+                        to: generationEnd
+                    ),
+                requestedTopK: request.topK,
+                retainedResultCount: filtered.count,
+                contextCharacterCount: context.count
+            )
         )
     }
 
@@ -120,6 +148,13 @@ public struct EdgeRAG: Sendable {
         Question:
         \(query)
         """
+    }
+
+    private static func milliseconds(
+        from start: UInt64,
+        to end: UInt64
+    ) -> Double {
+        Double(end - start) / 1_000_000
     }
 
     private func combinedFilter(

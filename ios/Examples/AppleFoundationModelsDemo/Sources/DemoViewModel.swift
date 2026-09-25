@@ -31,6 +31,7 @@ final class DemoViewModel: ObservableObject {
     private var agent: EdgeAgent?
     private var provider: AppleFoundationModelProvider?
     private var ragRetriever: EdgeRetriever?
+    private var ragOrchestrator: EdgeRAG?
     private var incrementalIndexer: EdgeIncrementalIndexer?
     private let ragChunker = EdgeTextChunker(
         maxCharacters: 800,
@@ -327,74 +328,66 @@ final class DemoViewModel: ObservableObject {
     func runRAG() {
         guard
             #available(iOS 26.0, *),
-            let provider,
-            let ragRetriever
+            let ragOrchestrator
         else {
             return
         }
 
-        let question = ragQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
+        let question = ragQuestion.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
         guard !question.isEmpty else { return }
 
         isRAGRunning = true
         ragRetrievedOutput = ""
         ragAnswer = ""
-        ragStatus = "Retrieving relevant chunks locally…"
+        ragStatus =
+            "Retrieving local context and generating automatically…"
 
         Task {
             defer { isRAGRunning = false }
 
             do {
-                let results = try await ragRetriever.retrieve(
+                let result = try await ragOrchestrator.run(
                     query: question,
                     topK: 3
                 )
 
-                ragRetrievedOutput = results
+                ragRetrievedOutput = result.retrievedResults
                     .enumerated()
-                    .map { index, result in
-                        let score = result.score.formatted(
-                            .number.precision(.fractionLength(3))
+                    .map { index, searchResult in
+                        let score = searchResult.score.formatted(
+                            .number.precision(
+                                .fractionLength(3)
+                            )
                         )
                         let source =
-                            result.chunk.metadata["source"] ?? "local"
-                        let page = result.chunk.metadata["pageNumber"]
-                            .map { " · page \($0)" } ?? ""
+                            searchResult.chunk
+                                .metadata["source"]
+                            ?? "local"
+                        let page =
+                            searchResult.chunk
+                                .metadata["pageNumber"]
+                                .map {
+                                    " · page \($0)"
+                                }
+                            ?? ""
 
                         return """
                         \(index + 1). [\(score)] \(source)\(page)
-                        \(result.chunk.text)
+                        \(searchResult.chunk.text)
                         """
                     }
                     .joined(separator: "\n\n")
 
-                let context = results
-                    .map(\.chunk.text)
-                    .joined(separator: "\n")
-
-                ragStatus = "Generating answer from retrieved local context…"
-
-                let response = try await provider.generate(
-                    EdgeGenerationRequest(
-                        prompt: """
-                        Local context:
-                        \(context)
-
-                        Question:
-                        \(question)
-                        """,
-                        systemPrompt: """
-                        Answer using only the supplied local context. If the context does not contain
-                        the answer, say that the local knowledge does not contain enough information.
-                        """
-                    )
-                )
-
-                ragAnswer = response.text
-                ragStatus = "RAG completed locally · no network required."
+                ragAnswer = result.answer
+                ragStatus =
+                    "RAG completed through EdgeRAG · retrieval + context + generation stayed local."
             } catch {
                 ragStatus = "Local RAG failed."
-                ragAnswer = String(describing: error)
+                ragAnswer = String(
+                    describing: error
+                )
             }
         }
     }
@@ -483,6 +476,14 @@ final class DemoViewModel: ObservableObject {
 
             try await retriever.index(Self.demoChunks)
             ragRetriever = retriever
+
+            if let agent {
+                ragOrchestrator = EdgeRAG(
+                    retriever: retriever,
+                    agent: agent
+                )
+            }
+
             self.incrementalIndexer = incrementalIndexer
             isRAGReady = true
             ragStatus =

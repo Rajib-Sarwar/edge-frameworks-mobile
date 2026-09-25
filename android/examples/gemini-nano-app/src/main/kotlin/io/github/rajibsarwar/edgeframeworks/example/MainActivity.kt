@@ -27,6 +27,7 @@ import io.github.rajibsarwar.edgeframeworks.EdgeContentFingerprint
 import io.github.rajibsarwar.edgeframeworks.EdgeGenerationRequest
 import io.github.rajibsarwar.edgeframeworks.EdgeProviderRouter
 import io.github.rajibsarwar.edgeframeworks.EdgeRetriever
+import io.github.rajibsarwar.edgeframeworks.EdgeRAG
 import io.github.rajibsarwar.edgeframeworks.EdgeTextChunker
 import io.github.rajibsarwar.edgeframeworks.documents.AndroidRichDocumentImporter
 import io.github.rajibsarwar.edgeframeworks.images.AndroidImageDocumentImporter
@@ -72,6 +73,7 @@ class MainActivity : Activity() {
     private var ragReady = false
     private var embeddingProvider: MediaPipeTextEmbeddingProvider? = null
     private var ragRetriever: EdgeRetriever? = null
+    private var ragOrchestrator: EdgeRAG? = null
     private var incrementalIndexer: EdgeIncrementalIndexer? = null
     private val pdfImporter by lazy {
         AndroidPDFDocumentImporter(this)
@@ -472,6 +474,10 @@ class MainActivity : Activity() {
 
                 embeddingProvider = embedder
                 ragRetriever = retriever
+                ragOrchestrator = EdgeRAG(
+                    retriever = retriever,
+                    agent = agent
+                )
                 incrementalIndexer =
                     EdgeIncrementalIndexer(
                         retriever = retriever,
@@ -710,70 +716,74 @@ class MainActivity : Activity() {
     }
 
     private fun runLocalRag() {
-        val question = ragQuestionView.text.toString().trim()
-        val retriever = ragRetriever ?: return
+        val question =
+            ragQuestionView.text
+                .toString()
+                .trim()
 
-        if (question.isEmpty() || !generationReady) return
+        val rag = ragOrchestrator ?: return
+
+        if (
+            question.isEmpty() ||
+            !generationReady
+        ) {
+            return
+        }
 
         setBusy(true)
         ragRetrievedView.text = ""
         ragAnswerView.text = ""
-        ragStatusView.text = "Retrieving relevant chunks locally…"
+        ragStatusView.text =
+            "Retrieving local context and generating automatically…"
 
         scope.launch {
             try {
-                val results = retriever.retrieve(
+                val result = rag.run(
                     query = question,
                     topK = 3
                 )
 
-                ragRetrievedView.text = results
-                    .mapIndexed { index, result ->
-                        val score = String.format(
-                            Locale.US,
-                            "%.3f",
-                            result.score
-                        )
-                        val source =
-                            result.chunk.metadata["source"] ?: "local"
-                        val page = result.chunk.metadata["pageNumber"]
-                            ?.let { " · page $it" }
-                            ?: ""
+                ragRetrievedView.text =
+                    result.retrievedResults
+                        .mapIndexed {
+                            index,
+                            searchResult ->
 
-                        "${index + 1}. [$score] $source$page\n${result.chunk.text}"
-                    }
-                    .joinToString("\n\n")
+                            val score =
+                                String.format(
+                                    Locale.US,
+                                    "%.3f",
+                                    searchResult.score
+                                )
 
-                val context = results
-                    .joinToString("\n") { it.chunk.text }
+                            val source =
+                                searchResult.chunk
+                                    .metadata["source"]
+                                    ?: "local"
 
-                ragStatusView.text =
-                    "Generating answer with Gemini Nano from retrieved context…"
+                            val page =
+                                searchResult.chunk
+                                    .metadata["pageNumber"]
+                                    ?.let {
+                                        " · page $it"
+                                    }
+                                    ?: ""
 
-                val response = provider.generate(
-                    EdgeGenerationRequest(
-                        prompt = """
-                            Local context:
-                            $context
+                            "${index + 1}. [$score] $source$page\n${searchResult.chunk.text}"
+                        }
+                        .joinToString("\n\n")
 
-                            Question:
-                            $question
-                        """.trimIndent(),
-                        systemPrompt = """
-                            Answer using only the supplied local context.
-                            If the answer is not present, say the local knowledge
-                            does not contain enough information.
-                        """.trimIndent()
-                    )
-                )
-
-                ragAnswerView.text = response.text
-                ragStatusView.text =
-                    "RAG completed locally · embeddings + retrieval + generation stayed on device."
-            } catch (error: Exception) {
-                ragStatusView.text = "Local RAG failed."
                 ragAnswerView.text =
-                    error.message ?: error::class.java.simpleName
+                    result.answer
+
+                ragStatusView.text =
+                    "RAG completed through EdgeRAG · retrieval + context + generation stayed local."
+            } catch (error: Exception) {
+                ragStatusView.text =
+                    "Local RAG failed."
+                ragAnswerView.text =
+                    error.message
+                        ?: error::class.java.simpleName
             } finally {
                 setBusy(false)
             }

@@ -82,3 +82,10 @@ while changed content replaces the source's previously indexed chunks.
 The demo accepts image files and uses the bundled ML Kit Text Recognition model to turn
 visible image text into an `EdgeDocument` before chunking, embedding, and persistence.
 This is text-focused image ingestion, not general image captioning or visual embeddings.
+
+
+## Automatic RAG orchestration
+
+The demo now uses `EdgeRAG` for the question-answering path. Retrieval, context
+construction, and Gemini Nano generation are orchestrated by the framework; the app only
+renders `EdgeRAGResult.answer` and its retrieved results.

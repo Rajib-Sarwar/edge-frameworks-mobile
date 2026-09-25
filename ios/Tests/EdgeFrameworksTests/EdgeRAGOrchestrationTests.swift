@@ -71,6 +71,45 @@ final class EdgeRAGOrchestrationTests: XCTestCase {
                 "--- BEGIN LOCAL CONTEXT ---"
             )
         )
+
+        let metrics = try XCTUnwrap(
+            result.metrics
+        )
+        XCTAssertEqual(
+            metrics.requestedTopK,
+            1
+        )
+        XCTAssertEqual(
+            metrics.retainedResultCount,
+            1
+        )
+        XCTAssertEqual(
+            metrics.retrieval.resultCount,
+            1
+        )
+        XCTAssertEqual(
+            metrics.contextCharacterCount,
+            result.context.count
+        )
+        XCTAssertGreaterThanOrEqual(
+            metrics.retrieval
+                .embeddingMilliseconds,
+            0
+        )
+        XCTAssertGreaterThanOrEqual(
+            metrics.retrieval
+                .searchMilliseconds,
+            0
+        )
+        XCTAssertGreaterThanOrEqual(
+            metrics.generationMilliseconds,
+            0
+        )
+        XCTAssertGreaterThanOrEqual(
+            metrics.totalMilliseconds,
+            metrics.retrieval
+                .totalMilliseconds
+        )
     }
 
     func testMinimumScoreFiltersWeakResults() async throws {
@@ -118,6 +157,14 @@ final class EdgeRAGOrchestrationTests: XCTestCase {
         XCTAssertEqual(
             result.retrievedResults.first?.chunk.id,
             "flight"
+        )
+        XCTAssertEqual(
+            result.metrics?.retainedResultCount,
+            1
+        )
+        XCTAssertEqual(
+            result.metrics?.retrieval.resultCount,
+            2
         )
     }
 }

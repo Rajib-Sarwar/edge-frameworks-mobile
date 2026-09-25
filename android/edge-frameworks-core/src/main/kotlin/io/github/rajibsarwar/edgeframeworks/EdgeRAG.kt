@@ -30,29 +30,34 @@ class EdgeRAG(
     ): EdgeRAGResult {
         coroutineContext.ensureActive()
 
+        val totalStart = System.nanoTime()
+
         val filter = combinedFilter(
             collection = request.collection,
             filter = request.filter
         )
 
-        val retrieved = retriever.retrieve(
-            query = request.query,
-            filter = filter,
-            topK = request.topK
-        )
+        val measuredRetrieval =
+            retriever.retrieveMeasured(
+                query = request.query,
+                filter = filter,
+                topK = request.topK
+            )
 
         val filtered =
             request.minimumScore?.let { minimum ->
-                retrieved.filter {
+                measuredRetrieval.results.filter {
                     it.score >= minimum
                 }
-            } ?: retrieved
+            } ?: measuredRetrieval.results
 
         val context = buildContext(
             filtered
         )
 
         coroutineContext.ensureActive()
+
+        val generationStart = System.nanoTime()
 
         val response = agent.run(
             EdgeGenerationRequest(
@@ -66,11 +71,40 @@ class EdgeRAG(
             )
         )
 
+        val generationEnd = System.nanoTime()
+
         return EdgeRAGResult(
             answer = response.text,
             retrievedResults = filtered,
-            context = context
+            context = context,
+            metrics = EdgeRAGMetrics(
+                retrieval =
+                    measuredRetrieval.metrics,
+                generationMilliseconds =
+                    milliseconds(
+                        generationStart,
+                        generationEnd
+                    ),
+                totalMilliseconds =
+                    milliseconds(
+                        totalStart,
+                        generationEnd
+                    ),
+                requestedTopK =
+                    request.topK,
+                retainedResultCount =
+                    filtered.size,
+                contextCharacterCount =
+                    context.length
+            )
         )
+    }
+
+    private fun milliseconds(
+        start: Long,
+        end: Long
+    ): Double {
+        return (end - start) / 1_000_000.0
     }
 
     private fun combinedFilter(

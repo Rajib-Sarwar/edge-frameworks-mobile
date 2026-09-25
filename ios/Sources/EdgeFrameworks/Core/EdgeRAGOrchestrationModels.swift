@@ -27,14 +27,17 @@ public struct EdgeRAGResult: Sendable, Equatable {
     public let answer: String
     public let retrievedResults: [EdgeSearchResult]
     public let context: String
+    public let metrics: EdgeRAGMetrics?
 
     public init(
         answer: String,
         retrievedResults: [EdgeSearchResult],
-        context: String
+        context: String,
+        metrics: EdgeRAGMetrics? = nil
     ) {
         self.answer = answer
         self.retrievedResults = retrievedResults
         self.context = context
+        self.metrics = metrics
     }
 }

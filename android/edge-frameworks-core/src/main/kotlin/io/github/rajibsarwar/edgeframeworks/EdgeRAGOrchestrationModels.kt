@@ -12,5 +12,6 @@ data class EdgeRAGRequest(
 data class EdgeRAGResult(
     val answer: String,
     val retrievedResults: List<EdgeSearchResult>,
-    val context: String
+    val context: String,
+    val metrics: EdgeRAGMetrics? = null
 )

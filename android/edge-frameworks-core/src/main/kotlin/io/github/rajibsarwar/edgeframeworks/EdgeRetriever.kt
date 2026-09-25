@@ -91,14 +91,62 @@ class EdgeRetriever(
         filter: EdgeVectorFilter?,
         topK: Int = 3
     ): List<EdgeSearchResult> {
+        return retrieveMeasured(
+            query = query,
+            filter = filter,
+            topK = topK
+        ).results
+    }
+
+    suspend fun retrieveMeasured(
+        query: String,
+        filter: EdgeVectorFilter? = null,
+        topK: Int = 3
+    ): EdgeMeasuredRetrieval {
         coroutineContext.ensureActive()
 
-        val queryEmbedding = embeddingProvider.embed(query)
+        val totalStart = System.nanoTime()
+        val embeddingStart = totalStart
 
-        return vectorStore.search(
+        val queryEmbedding =
+            embeddingProvider.embed(query)
+
+        val embeddingEnd = System.nanoTime()
+
+        coroutineContext.ensureActive()
+
+        val results = vectorStore.search(
             query = queryEmbedding,
             topK = topK,
             filter = filter
+        )
+
+        val searchEnd = System.nanoTime()
+
+        return EdgeMeasuredRetrieval(
+            results = results,
+            metrics = EdgeRetrievalMetrics(
+                embeddingMilliseconds =
+                    milliseconds(
+                        embeddingStart,
+                        embeddingEnd
+                    ),
+                searchMilliseconds =
+                    milliseconds(
+                        embeddingEnd,
+                        searchEnd
+                    ),
+                totalMilliseconds =
+                    milliseconds(
+                        totalStart,
+                        searchEnd
+                    ),
+                resultCount = results.size,
+                topScore =
+                    results.firstOrNull()?.score,
+                bottomScore =
+                    results.lastOrNull()?.score
+            )
         )
     }
 
@@ -144,6 +192,13 @@ class EdgeRetriever(
                 collectionId = collection.id
             )
         )
+    }
+
+    private fun milliseconds(
+        start: Long,
+        end: Long
+    ): Double {
+        return (end - start) / 1_000_000.0
     }
 
     private fun documentForCollection(

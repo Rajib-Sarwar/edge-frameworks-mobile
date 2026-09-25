@@ -1,3 +1,5 @@
+import Foundation
+
 public struct EdgeRetriever: Sendable {
     private let embeddingProvider: any EdgeEmbeddingProvider
     private let vectorStore: any EdgeVectorStore
@@ -99,14 +101,60 @@ public struct EdgeRetriever: Sendable {
         filter: EdgeVectorFilter?,
         topK: Int = 3
     ) async throws -> [EdgeSearchResult] {
+        try await retrieveMeasured(
+            query: query,
+            filter: filter,
+            topK: topK
+        ).results
+    }
+
+    public func retrieveMeasured(
+        query: String,
+        filter: EdgeVectorFilter? = nil,
+        topK: Int = 3
+    ) async throws -> EdgeMeasuredRetrieval {
         try Task.checkCancellation()
 
-        let queryEmbedding = try await embeddingProvider.embed(query)
+        let totalStart =
+            DispatchTime.now().uptimeNanoseconds
+        let embeddingStart = totalStart
 
-        return try await vectorStore.search(
+        let queryEmbedding =
+            try await embeddingProvider.embed(query)
+
+        let embeddingEnd =
+            DispatchTime.now().uptimeNanoseconds
+
+        try Task.checkCancellation()
+
+        let results = try await vectorStore.search(
             query: queryEmbedding,
             topK: topK,
             filter: filter
+        )
+
+        let searchEnd =
+            DispatchTime.now().uptimeNanoseconds
+
+        return EdgeMeasuredRetrieval(
+            results: results,
+            metrics: EdgeRetrievalMetrics(
+                embeddingMilliseconds: Self.milliseconds(
+                    from: embeddingStart,
+                    to: embeddingEnd
+                ),
+                searchMilliseconds: Self.milliseconds(
+                    from: embeddingEnd,
+                    to: searchEnd
+                ),
+                totalMilliseconds: Self.milliseconds(
+                    from: totalStart,
+                    to: searchEnd
+                ),
+                resultCount: results.count,
+                topScore: results.first?.score,
+                bottomScore: results.last?.score
+            )
         )
     }
 
@@ -152,6 +200,13 @@ public struct EdgeRetriever: Sendable {
                 collectionID: collection.id
             )
         )
+    }
+
+    private static func milliseconds(
+        from start: UInt64,
+        to end: UInt64
+    ) -> Double {
+        Double(end - start) / 1_000_000
     }
 
     private func documentForCollection(

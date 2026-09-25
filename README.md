@@ -549,6 +549,52 @@ The default system instruction tells the model to answer only from supplied loca
 context and to say when the local knowledge is insufficient. Apps can replace that
 instruction when they need domain-specific behavior.
 
+## RAG observability
+
+v0.4 exposes lightweight local metrics for retrieval and generation so apps can inspect
+answer quality and latency without adding a separate telemetry dependency.
+
+`EdgeRetriever.retrieveMeasured(...)` returns both search results and:
+
+- embedding latency
+- vector-search latency
+- total retrieval latency
+- result count
+- top and bottom similarity scores
+
+`EdgeRAGResult.metrics` additionally reports generation latency, end-to-end RAG
+latency, requested top-K, retained results after score filtering, and context character
+count.
+
+Swift:
+
+```swift
+let result = try await rag.run(
+    query: "What does fault code E31 mean?",
+    in: equipment
+)
+
+if let metrics = result.metrics {
+    print(metrics.retrieval.topScore as Any)
+    print(metrics.totalMilliseconds)
+}
+```
+
+Kotlin:
+
+```kotlin
+val result = rag.run(
+    query = "What does fault code E31 mean?",
+    collection = equipment
+)
+
+println(result.metrics?.retrieval?.topScore)
+println(result.metrics?.totalMilliseconds)
+```
+
+The metrics stay local and are plain framework values; the framework does not upload or
+persist telemetry on its own.
+
 ## Example apps
 
 Two small example apps exercise the same framework architecture on each platform:
@@ -694,7 +740,7 @@ Finer-grained diffing and broader visual semantics remain future work.
 - [x] retrieved context/results returned to the caller
 - [x] fine-grained page/document incremental re-indexing
 - [x] higher-level collection/source management APIs
-- [ ] retrieval observability and metrics
+- [x] retrieval observability and metrics
 - [ ] hybrid lexical + vector retrieval
 
 ## Principles

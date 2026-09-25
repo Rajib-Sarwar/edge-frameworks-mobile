@@ -12,6 +12,8 @@ class EdgeRAG(
         collection: EdgeKnowledgeCollection? = null,
         topK: Int = 3,
         minimumScore: Float? = null,
+        retrievalMode: EdgeRetrievalMode =
+            EdgeRetrievalMode.VECTOR,
         systemPrompt: String? = null
     ): EdgeRAGResult {
         return run(
@@ -20,6 +22,7 @@ class EdgeRAG(
                 collection = collection,
                 topK = topK,
                 minimumScore = minimumScore,
+                retrievalMode = retrievalMode,
                 systemPrompt = systemPrompt
             )
         )
@@ -38,11 +41,21 @@ class EdgeRAG(
         )
 
         val measuredRetrieval =
-            retriever.retrieveMeasured(
-                query = request.query,
-                filter = filter,
-                topK = request.topK
-            )
+            when (request.retrievalMode) {
+                EdgeRetrievalMode.VECTOR ->
+                    retriever.retrieveMeasured(
+                        query = request.query,
+                        filter = filter,
+                        topK = request.topK
+                    )
+
+                EdgeRetrievalMode.HYBRID ->
+                    retriever.retrieveHybridMeasured(
+                        query = request.query,
+                        filter = filter,
+                        topK = request.topK
+                    )
+            }
 
         val filtered =
             request.minimumScore?.let { minimum ->

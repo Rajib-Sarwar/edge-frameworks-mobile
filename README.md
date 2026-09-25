@@ -298,8 +298,36 @@ text-based PDF files. PDF pages are imported as local documents before chunking,
 through retrieval. Imported content is chunked, embedded on-device, and persisted in the
 local vector store.
 
-PDF support in v0.2 is text extraction only. Scanned/image-only PDFs, OCR, Word, HTML,
-and richer document parsers remain future work.
+v0.3 adds OCR fallback for scanned/image-only PDF pages. Pages with embedded text still
+use direct text extraction; pages without extractable text are rendered locally and
+passed through the platform OCR engine before chunking and indexing. Word, HTML, image
+ingestion outside PDF pages, and richer document parsers remain future work.
+
+## Scanned PDF / OCR ingestion
+
+The PDF importers now use a hybrid extraction pipeline:
+
+```text
+PDF page
+   ↓
+embedded text available?
+   ├── yes → direct extraction
+   └── no  → render page image
+                ↓
+              OCR
+                ↓
+           EdgeDocument
+                ↓
+       chunk / embed / persist
+```
+
+On iOS, OCR fallback uses Apple Vision text recognition. On Android, the PDF module
+renders the page with PdfBox-Android and uses the bundled ML Kit Text Recognition model.
+Both implementations preserve `source`, `pageNumber`, `pageCount`,
+`parentDocumentID`, `extractionMethod`, and `ocrEngine` metadata.
+
+OCR is intentionally used only for PDF pages where embedded text extraction returns no
+text, avoiding unnecessary OCR work for normal digital PDFs.
 
 ## Example apps
 
@@ -428,7 +456,7 @@ collection persistence, and automatic source change detection remain upcoming wo
 - [x] vector metadata filters
 - [x] document removal and collection clearing
 - [x] document re-indexing lifecycle
-- [ ] scanned PDF / OCR ingestion
+- [x] scanned PDF / OCR ingestion
 - [ ] DOCX / HTML ingestion
 - [ ] image ingestion
 - [ ] persistent collection catalog and source management

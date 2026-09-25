@@ -29,6 +29,7 @@ kotlin {
 dependencies {
     implementation(project(":edge-frameworks-core"))
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
 
     testImplementation("junit:junit:4.13.2")

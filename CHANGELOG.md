@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Cross-platform vector filtering by document, collection, and metadata.
 - Collection-scoped retrieval, document removal, collection clearing, and document re-indexing.
 - Persistent vector-store removal support on iOS and Android.
+- Scanned PDF OCR fallback on iOS with Apple Vision and on Android with bundled ML Kit Text Recognition.
 
 ## 0.2.0 - 2026-09-24
 

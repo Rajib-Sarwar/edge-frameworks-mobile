@@ -160,62 +160,77 @@ final class DemoViewModel: ObservableObject {
         do {
             let data = try Data(contentsOf: url)
             let sourceName = url.lastPathComponent
-            let documents: [EdgeDocument]
-
-            if url.pathExtension.lowercased() == "pdf" {
-                documents = try ApplePDFDocumentImporter()
-                    .importDocument(
-                        data: data,
-                        sourceName: sourceName
-                    )
-            } else {
-                guard let text = String(
-                    data: data,
-                    encoding: .utf8
-                ) else {
-                    ragStatus =
-                        "Import failed · document is not UTF-8 text."
-                    return
-                }
-
-                documents = [
-                    EdgeDocument(
-                        id: UUID().uuidString,
-                        text: text,
-                        metadata: [
-                            "source": sourceName,
-                            "mediaType": "text/plain"
-                        ]
-                    )
-                ]
-            }
-
-            let chunks = documents.flatMap {
-                ragChunker.chunk($0)
-            }
-
-            guard !chunks.isEmpty else {
-                ragStatus =
-                    "Import skipped · document contains no extractable text."
-                return
-            }
 
             guard let ragRetriever else {
                 ragStatus = "Local RAG is not ready."
                 return
             }
 
-            ragStatus =
-                "Embedding \(chunks.count) imported chunks locally…"
+            ragStatus = sourceName.lowercased().hasSuffix(".pdf")
+                ? "Extracting PDF text · OCR fallback runs locally when needed…"
+                : "Reading local document…"
 
             Task {
                 do {
+                    let documents: [EdgeDocument]
+
+                    if url.pathExtension.lowercased() == "pdf" {
+                        documents = try await Task.detached {
+                            try await ApplePDFDocumentImporter()
+                                .importDocumentWithOCR(
+                                    data: data,
+                                    sourceName: sourceName
+                                )
+                        }.value
+                    } else {
+                        guard let text = String(
+                            data: data,
+                            encoding: .utf8
+                        ) else {
+                            ragStatus =
+                                "Import failed · document is not UTF-8 text."
+                            return
+                        }
+
+                        documents = [
+                            EdgeDocument(
+                                id: UUID().uuidString,
+                                text: text,
+                                metadata: [
+                                    "source": sourceName,
+                                    "mediaType": "text/plain"
+                                ]
+                            )
+                        ]
+                    }
+
+                    let chunks = documents.flatMap {
+                        ragChunker.chunk($0)
+                    }
+
+                    guard !chunks.isEmpty else {
+                        ragStatus =
+                            "Import skipped · document contains no extractable text."
+                        return
+                    }
+
+                    ragStatus =
+                        "Embedding \(chunks.count) imported chunks locally…"
+
                     try await ragRetriever.index(chunks)
+
+                    let ocrPages = documents.filter {
+                        $0.metadata["extractionMethod"] == "ocr"
+                    }.count
+
+                    let ocrNote = ocrPages > 0
+                        ? " · OCR used on \(ocrPages) page(s)"
+                        : ""
+
                     ragStatus =
-                        "Imported \(sourceName) · \(chunks.count) chunks persisted locally."
+                        "Imported \(sourceName) · \(chunks.count) chunks persisted locally\(ocrNote)."
                 } catch {
-                    ragStatus =
-                        "Document indexing failed: \(error)"
+                    ragStatus = "Document import failed: \(error)"
                 }
             }
         } catch {

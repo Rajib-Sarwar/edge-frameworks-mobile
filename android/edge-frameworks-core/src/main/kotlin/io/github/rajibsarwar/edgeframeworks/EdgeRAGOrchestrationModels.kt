@@ -6,6 +6,8 @@ data class EdgeRAGRequest(
     val filter: EdgeVectorFilter? = null,
     val topK: Int = 3,
     val minimumScore: Float? = null,
+    val retrievalMode: EdgeRetrievalMode =
+        EdgeRetrievalMode.VECTOR,
     val systemPrompt: String? = null
 )
 

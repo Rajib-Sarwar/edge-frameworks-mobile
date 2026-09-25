@@ -11,7 +11,8 @@ class AndroidPDFDocumentImporterTest {
             sourceName = "travel.pdf",
             pageNumber = 2,
             pageCount = 5,
-            text = "Hotel check-in is October 13."
+            text = "Hotel check-in is October 13.",
+            extractionMethod = "ocr"
         )
 
         assertEquals(
@@ -37,6 +38,14 @@ class AndroidPDFDocumentImporterTest {
         assertEquals(
             "travel",
             document.metadata["parentDocumentID"]
+        )
+        assertEquals(
+            "ocr",
+            document.metadata["extractionMethod"]
+        )
+        assertEquals(
+            "ML Kit Text Recognition",
+            document.metadata["ocrEngine"]
         )
     }
 }

@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Collection-scoped retrieval, document removal, collection clearing, and document re-indexing.
 - Persistent vector-store removal support on iOS and Android.
 - Scanned PDF OCR fallback on iOS with Apple Vision and on Android with bundled ML Kit Text Recognition.
+- DOCX and HTML ingestion on iOS and Android with document-format metadata preserved for RAG.
 
 ## 0.2.0 - 2026-09-24
 

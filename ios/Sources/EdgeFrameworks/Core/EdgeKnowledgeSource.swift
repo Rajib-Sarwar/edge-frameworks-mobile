@@ -34,7 +34,7 @@ public enum EdgeSourceSyncResult: Equatable, Sendable {
     case unchanged(EdgeKnowledgeSource)
     case indexed(
         source: EdgeKnowledgeSource,
-        removedDocumentCount: Int,
+        removedChunkCount: Int,
         indexedDocumentCount: Int
     )
 }

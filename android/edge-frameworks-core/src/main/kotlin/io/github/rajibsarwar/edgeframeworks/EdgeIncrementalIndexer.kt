@@ -31,12 +31,12 @@ class EdgeIncrementalIndexer(
             )
         }
 
-        var removedDocumentCount = 0
+        var removedChunkCount = 0
 
         if (existing != null) {
             for (documentId in existing.documentIds) {
                 coroutineContext.ensureActive()
-                removedDocumentCount += retriever.remove(
+                removedChunkCount += retriever.remove(
                     documentId = documentId,
                     collectionId = existing.collectionId
                 )
@@ -66,8 +66,8 @@ class EdgeIncrementalIndexer(
 
         return EdgeSourceSyncResult.Indexed(
             source = source,
-            removedDocumentCount =
-                removedDocumentCount,
+            removedChunkCount =
+                removedChunkCount,
             indexedDocumentCount =
                 documents.size
         )

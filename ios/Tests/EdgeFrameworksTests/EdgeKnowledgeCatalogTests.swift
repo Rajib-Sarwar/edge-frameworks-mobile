@@ -39,12 +39,17 @@ final class EdgeKnowledgeCatalogTests: XCTestCase {
             fileURL: fileURL
         )
 
+        let reopenedCollection =
+            await reopened.collection(id: "travel")
+        let reopenedSource =
+            await reopened.source(id: "trip-file")
+
         XCTAssertEqual(
-            await reopened.collection(id: "travel"),
+            reopenedCollection,
             collection
         )
         XCTAssertEqual(
-            await reopened.source(id: "trip-file"),
+            reopenedSource,
             source
         )
 
@@ -104,8 +109,10 @@ final class EdgeKnowledgeCatalogTests: XCTestCase {
 
         XCTAssertEqual(firstRemoved, 0)
         XCTAssertEqual(firstIndexed, 1)
+        let firstCallCount =
+            await embeddingProvider.callCount()
         XCTAssertEqual(
-            await embeddingProvider.callCount(),
+            firstCallCount,
             1
         )
 
@@ -127,8 +134,10 @@ final class EdgeKnowledgeCatalogTests: XCTestCase {
             return XCTFail("Expected unchanged source")
         }
 
+        let unchangedCallCount =
+            await embeddingProvider.callCount()
         XCTAssertEqual(
-            await embeddingProvider.callCount(),
+            unchangedCallCount,
             1
         )
 
@@ -156,8 +165,10 @@ final class EdgeKnowledgeCatalogTests: XCTestCase {
 
         XCTAssertEqual(removed, 1)
         XCTAssertEqual(indexed, 1)
+        let changedCallCount =
+            await embeddingProvider.callCount()
         XCTAssertEqual(
-            await embeddingProvider.callCount(),
+            changedCallCount,
             2
         )
 

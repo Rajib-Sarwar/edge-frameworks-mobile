@@ -215,8 +215,10 @@ that retrieved context with Apple Foundation Models. No network service or cloud
 database is required for this flow.
 
 The iOS demo now persists vector data in Application Support and can import UTF-8 text,
-Markdown, and JSON documents through the system document picker. Larger embedding
-backends and richer document parsers remain future work.
+Markdown, JSON, and text-based PDF documents through the system document picker. PDF
+text extraction uses Apple's PDFKit and preserves source filename and page metadata.
+Scanned or image-only PDFs are not OCR'd in v0.2. Larger embedding backends and richer
+document parsers remain future work.
 
 ## Android local RAG demo
 
@@ -248,9 +250,11 @@ accepts a question, displays the top retrieved chunks with similarity scores, an
 only that retrieved context to Gemini Nano for the final response.
 
 The Android demo now persists vector data to app-local storage and can import UTF-8
-text, Markdown, and JSON documents from the system document picker. The embedding model
-is packaged with the app during the build rather than downloaded by the runtime RAG
-code.
+text, Markdown, JSON, and text-based PDF documents from the system document picker.
+PDF extraction is provided by the Apache-2.0-licensed PdfBox-Android port and preserves
+source filename and page metadata. Scanned or image-only PDFs are not OCR'd in v0.2.
+The embedding model is packaged with the app during the build rather than downloaded by
+the runtime RAG code.
 
 ## Document import, chunking, and persistence
 
@@ -288,10 +292,14 @@ previously indexed vectors, so imported knowledge survives app restarts.
 `EdgeRetriever` can now index either prebuilt chunks or an `EdgeDocument` together
 with an `EdgeTextChunker`.
 
-The example apps add a native document picker for UTF-8 text-like files:
-plain text, Markdown, and JSON. Imported content is chunked, embedded on-device, and
-persisted in the local vector store. PDF, Word, OCR, and richer document parsers are not
-part of this slice yet.
+The example apps add native document pickers for plain text, Markdown, JSON, and
+text-based PDF files. PDF pages are imported as local documents before chunking, with
+`source`, `pageNumber`, `pageCount`, and `parentDocumentID` metadata preserved
+through retrieval. Imported content is chunked, embedded on-device, and persisted in the
+local vector store.
+
+PDF support in v0.2 is text extraction only. Scanned/image-only PDFs, OCR, Word, HTML,
+and richer document parsers remain future work.
 
 ## Example apps
 
@@ -355,6 +363,7 @@ edge-frameworks-mobile/
 │   ├── edge-frameworks-core/
 │   ├── edge-frameworks-gemini-nano/
 │   ├── edge-frameworks-mediapipe-embeddings/
+│   ├── edge-frameworks-pdf/
 │   └── examples/
 │       └── gemini-nano-app/
 ├── docs/
@@ -383,6 +392,7 @@ edge-frameworks-mobile/
 - [x] Android on-device embeddings + local RAG demo
 - [x] document import + chunking
 - [x] persistent local vector storage
+- [x] text-based PDF ingestion with page metadata
 
 ## Principles
 

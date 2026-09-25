@@ -101,13 +101,17 @@ final class EdgeKnowledgeManagerTests: XCTestCase {
         )
 
         XCTAssertEqual(removed, 1)
-        XCTAssertNil(
+
+        let removedCollection =
             await manager.collection(
                 id: collection.id
             )
-        )
+        let remainingSources =
+            await manager.sources()
+
+        XCTAssertNil(removedCollection)
         XCTAssertTrue(
-            await manager.sources().isEmpty
+            remainingSources.isEmpty
         )
     }
 }

@@ -52,7 +52,7 @@ The first Gradle build needs network access to fetch the embedding model asset. 
 - top-K semantic retrieval with similarity scores
 - retrieved-context generation with Gemini Nano
 - persistent local vector storage
-- TXT, Markdown, JSON, PDF, DOCX, and HTML import
+- TXT, Markdown, JSON, PDF, DOCX, HTML, and image OCR import
 - PDF page-aware retrieval metadata through PdfBox-Android
 
 
@@ -75,3 +75,10 @@ uses jsoup for HTML-to-text parsing before local chunking, embedding, and persis
 Imported documents are tracked in a local `EdgeFileKnowledgeCatalog`. The demo hashes
 the selected file before indexing; importing the same unchanged source skips embeddings,
 while changed content replaces the source's previously indexed chunks.
+
+
+## Image ingestion
+
+The demo accepts image files and uses the bundled ML Kit Text Recognition model to turn
+visible image text into an `EdgeDocument` before chunking, embedding, and persistence.
+This is text-focused image ingestion, not general image captioning or visual embeddings.

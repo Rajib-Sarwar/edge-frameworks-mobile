@@ -17,6 +17,60 @@ public enum EdgeRetrievalError: Error, Equatable, Sendable {
     case hybridSearchUnsupported
 }
 
+enum EdgeIdentifierMatcher {
+    static func identifiers(
+        in text: String
+    ) -> Set<String> {
+        let allowedPunctuation:
+            Set<Character> = ["-", "_", "/", "."]
+
+        return Set(
+            text.lowercased()
+                .split { character in
+                    !character.isLetter &&
+                    !character.isNumber &&
+                    !allowedPunctuation.contains(
+                        character
+                    )
+                }
+                .compactMap { raw in
+                    let normalized =
+                        raw.filter {
+                            $0.isLetter ||
+                            $0.isNumber
+                        }
+
+                    guard
+                        normalized.count >= 3,
+                        normalized.contains(
+                            where: { $0.isLetter }
+                        ),
+                        normalized.contains(
+                            where: { $0.isNumber }
+                        )
+                    else {
+                        return nil
+                    }
+
+                    return normalized
+                }
+        )
+    }
+
+    static func matchCount(
+        queryIdentifiers: Set<String>,
+        in text: String
+    ) -> Int {
+        guard !queryIdentifiers.isEmpty else {
+            return 0
+        }
+
+        return queryIdentifiers.intersection(
+            identifiers(in: text)
+        ).count
+    }
+}
+
 enum EdgeLexicalSearch {
     static func search(
         query: String,
@@ -28,6 +82,11 @@ enum EdgeLexicalSearch {
 
         let queryTokens = tokens(query)
         guard !queryTokens.isEmpty else { return [] }
+
+        let queryIdentifiers =
+            EdgeIdentifierMatcher.identifiers(
+                in: query
+            )
 
         let normalizedQuery =
             query.trimmingCharacters(
@@ -55,7 +114,20 @@ enum EdgeLexicalSearch {
                     ? 1
                     : 0
 
-            let score = tokenScore + phraseBonus
+            let identifierBonus =
+                Float(
+                    EdgeIdentifierMatcher.matchCount(
+                        queryIdentifiers:
+                            queryIdentifiers,
+                        in: chunk.text
+                    )
+                )
+
+            let score =
+                tokenScore +
+                phraseBonus +
+                identifierBonus
+
             guard score > 0 else { return nil }
 
             return EdgeSearchResult(
@@ -89,6 +161,7 @@ enum EdgeHybridRankFusion {
     static func fuse(
         vector: [EdgeSearchResult],
         lexical: [EdgeSearchResult],
+        query: String,
         topK: Int,
         rrfK: Float = 60
     ) -> [EdgeSearchResult] {
@@ -113,24 +186,55 @@ enum EdgeHybridRankFusion {
         let maximumScore =
             2 / (rrfK + 1)
 
-        return scores.compactMap { id, score in
+        let queryIdentifiers =
+            EdgeIdentifierMatcher.identifiers(
+                in: query
+            )
+
+        return scores.compactMap {
+            id,
+            score -> (
+                result: EdgeSearchResult,
+                identifierMatches: Int
+            )? in
+
             guard let chunk = chunks[id] else {
                 return nil
             }
 
-            return EdgeSearchResult(
-                chunk: chunk,
-                score: score / maximumScore
+            return (
+                EdgeSearchResult(
+                    chunk: chunk,
+                    score:
+                        score / maximumScore
+                ),
+                EdgeIdentifierMatcher.matchCount(
+                    queryIdentifiers:
+                        queryIdentifiers,
+                    in: chunk.text
+                )
             )
         }
         .sorted { lhs, rhs in
-            if lhs.score == rhs.score {
-                return lhs.chunk.id < rhs.chunk.id
+            if lhs.identifierMatches !=
+                rhs.identifierMatches
+            {
+                return lhs.identifierMatches >
+                    rhs.identifierMatches
             }
-            return lhs.score > rhs.score
+
+            if lhs.result.score ==
+                rhs.result.score
+            {
+                return lhs.result.chunk.id <
+                    rhs.result.chunk.id
+            }
+
+            return lhs.result.score >
+                rhs.result.score
         }
         .prefix(topK)
-        .map { $0 }
+        .map { $0.result }
     }
 
     private static func add(

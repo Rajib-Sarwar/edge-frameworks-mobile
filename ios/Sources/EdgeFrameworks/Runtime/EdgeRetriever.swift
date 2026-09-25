@@ -114,10 +114,20 @@ public struct EdgeRetriever: Sendable {
         documentID: String,
         from collection: EdgeKnowledgeCollection? = nil
     ) async throws -> Int {
+        try await remove(
+            documentID: documentID,
+            collectionID: collection?.id
+        )
+    }
+
+    public func remove(
+        documentID: String,
+        collectionID: String?
+    ) async throws -> Int {
         try await vectorStore.remove(
             filter: EdgeVectorFilter(
                 documentID: documentID,
-                collectionID: collection?.id
+                collectionID: collectionID
             )
         )
     }

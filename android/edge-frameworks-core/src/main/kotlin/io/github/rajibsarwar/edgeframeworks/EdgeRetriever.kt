@@ -204,6 +204,7 @@ class EdgeRetriever(
         val fused = EdgeHybridRankFusion.fuse(
             vector = vectorResults,
             lexical = lexicalResults,
+            query = query,
             topK = topK
         )
 

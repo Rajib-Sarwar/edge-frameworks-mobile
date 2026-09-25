@@ -216,6 +216,7 @@ public struct EdgeRetriever: Sendable {
         let fused = EdgeHybridRankFusion.fuse(
             vector: try await vectorResults,
             lexical: await lexicalResults,
+            query: query,
             topK: topK
         )
 

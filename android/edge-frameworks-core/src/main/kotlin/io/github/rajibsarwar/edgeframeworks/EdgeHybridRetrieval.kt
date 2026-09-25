@@ -22,6 +22,54 @@ sealed class EdgeRetrievalException(
         )
 }
 
+internal object EdgeIdentifierMatcher {
+    private val candidateRegex =
+        Regex("[\\p{L}\\p{N}._/-]+")
+
+    fun identifiers(
+        text: String
+    ): Set<String> {
+        return candidateRegex
+            .findAll(text.lowercase())
+            .mapNotNull { match ->
+                val normalized =
+                    match.value.filter {
+                        it.isLetterOrDigit()
+                    }
+
+                if (
+                    normalized.length >= 3 &&
+                    normalized.any {
+                        it.isLetter()
+                    } &&
+                    normalized.any {
+                        it.isDigit()
+                    }
+                ) {
+                    normalized
+                } else {
+                    null
+                }
+            }
+            .toSet()
+    }
+
+    fun matchCount(
+        queryIdentifiers: Set<String>,
+        text: String
+    ): Int {
+        if (queryIdentifiers.isEmpty()) {
+            return 0
+        }
+
+        return queryIdentifiers
+            .intersect(
+                identifiers(text)
+            )
+            .size
+    }
+}
+
 internal object EdgeLexicalSearch {
     fun search(
         query: String,
@@ -35,6 +83,10 @@ internal object EdgeLexicalSearch {
         if (queryTokens.isEmpty()) {
             return emptyList()
         }
+
+        val queryIdentifiers =
+            EdgeIdentifierMatcher
+                .identifiers(query)
 
         val normalizedQuery =
             query.trim().lowercase()
@@ -69,8 +121,19 @@ internal object EdgeLexicalSearch {
                     0f
                 }
 
+            val identifierBonus =
+                EdgeIdentifierMatcher
+                    .matchCount(
+                        queryIdentifiers =
+                            queryIdentifiers,
+                        text = chunk.text
+                    )
+                    .toFloat()
+
             val score =
-                tokenScore + phraseBonus
+                tokenScore +
+                    phraseBonus +
+                    identifierBonus
 
             if (score <= 0f) {
                 null
@@ -105,6 +168,7 @@ internal object EdgeHybridRankFusion {
     fun fuse(
         vector: List<EdgeSearchResult>,
         lexical: List<EdgeSearchResult>,
+        query: String,
         topK: Int,
         rrfK: Float = 60f
     ): List<EdgeSearchResult> {
@@ -131,22 +195,42 @@ internal object EdgeHybridRankFusion {
         val maximumScore =
             2f / (rrfK + 1f)
 
+        val queryIdentifiers =
+            EdgeIdentifierMatcher
+                .identifiers(query)
+
         return scores.mapNotNull { (id, score) ->
             chunks[id]?.let { chunk ->
-                EdgeSearchResult(
-                    chunk = chunk,
-                    score =
-                        score / maximumScore
+                Pair(
+                    EdgeSearchResult(
+                        chunk = chunk,
+                        score =
+                            score / maximumScore
+                    ),
+                    EdgeIdentifierMatcher
+                        .matchCount(
+                            queryIdentifiers =
+                                queryIdentifiers,
+                            text = chunk.text
+                        )
                 )
             }
         }
             .sortedWith(
-                compareByDescending<EdgeSearchResult> {
-                    it.score
+                compareByDescending<
+                    Pair<EdgeSearchResult, Int>
+                > {
+                    it.second
                 }
-                    .thenBy { it.chunk.id }
+                    .thenByDescending {
+                        it.first.score
+                    }
+                    .thenBy {
+                        it.first.chunk.id
+                    }
             )
             .take(topK)
+            .map { it.first }
     }
 
     private fun add(

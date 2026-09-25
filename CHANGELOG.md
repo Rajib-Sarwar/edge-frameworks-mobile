@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Per-document source fingerprints and fine-grained incremental re-indexing for changed, added, and removed documents within a source.
 - High-level `EdgeKnowledgeManager` APIs for collection/source listing, summaries, syncing, and removal.
 - RAG observability metrics for embedding, vector search, generation, total latency, result scores/counts, and context size.
+- Hybrid lexical + vector retrieval with reciprocal-rank fusion and RAG retrieval-mode selection.
 
 ## 0.3.0 - 2026-09-24
 

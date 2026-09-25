@@ -23,6 +23,7 @@ public struct EdgeRAG: Sendable {
         in collection: EdgeKnowledgeCollection? = nil,
         topK: Int = 3,
         minimumScore: Float? = nil,
+        retrievalMode: EdgeRetrievalMode = .vector,
         systemPrompt: String? = nil
     ) async throws -> EdgeRAGResult {
         try await run(
@@ -31,6 +32,7 @@ public struct EdgeRAG: Sendable {
                 collection: collection,
                 topK: topK,
                 minimumScore: minimumScore,
+                retrievalMode: retrievalMode,
                 systemPrompt: systemPrompt
             )
         )
@@ -50,11 +52,20 @@ public struct EdgeRAG: Sendable {
         )
 
         let measuredRetrieval =
-            try await retriever.retrieveMeasured(
-                query: request.query,
-                filter: filter,
-                topK: request.topK
-            )
+            switch request.retrievalMode {
+            case .vector:
+                try await retriever.retrieveMeasured(
+                    query: request.query,
+                    filter: filter,
+                    topK: request.topK
+                )
+            case .hybrid:
+                try await retriever.retrieveHybridMeasured(
+                    query: request.query,
+                    filter: filter,
+                    topK: request.topK
+                )
+            }
 
         let filtered = if let minimumScore =
             request.minimumScore {

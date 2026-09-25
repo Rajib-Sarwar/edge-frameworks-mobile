@@ -150,6 +150,92 @@ class EdgeRetriever(
         )
     }
 
+    suspend fun retrieveHybrid(
+        query: String,
+        filter: EdgeVectorFilter? = null,
+        topK: Int = 3
+    ): List<EdgeSearchResult> {
+        return retrieveHybridMeasured(
+            query = query,
+            filter = filter,
+            topK = topK
+        ).results
+    }
+
+    suspend fun retrieveHybridMeasured(
+        query: String,
+        filter: EdgeVectorFilter? = null,
+        topK: Int = 3
+    ): EdgeMeasuredRetrieval {
+        coroutineContext.ensureActive()
+
+        val lexicalStore =
+            vectorStore as? EdgeLexicalSearchStore
+                ?: throw EdgeRetrievalException
+                    .HybridSearchUnsupported
+
+        val totalStart = System.nanoTime()
+        val embeddingStart = totalStart
+
+        val queryEmbedding =
+            embeddingProvider.embed(query)
+
+        val embeddingEnd = System.nanoTime()
+
+        coroutineContext.ensureActive()
+
+        val candidateCount =
+            maxOf(topK * 3, topK)
+
+        val vectorResults =
+            vectorStore.search(
+                query = queryEmbedding,
+                topK = candidateCount,
+                filter = filter
+            )
+
+        val lexicalResults =
+            lexicalStore.lexicalSearch(
+                query = query,
+                topK = candidateCount,
+                filter = filter
+            )
+
+        val fused = EdgeHybridRankFusion.fuse(
+            vector = vectorResults,
+            lexical = lexicalResults,
+            topK = topK
+        )
+
+        val searchEnd = System.nanoTime()
+
+        return EdgeMeasuredRetrieval(
+            results = fused,
+            metrics = EdgeRetrievalMetrics(
+                embeddingMilliseconds =
+                    milliseconds(
+                        embeddingStart,
+                        embeddingEnd
+                    ),
+                searchMilliseconds =
+                    milliseconds(
+                        embeddingEnd,
+                        searchEnd
+                    ),
+                totalMilliseconds =
+                    milliseconds(
+                        totalStart,
+                        searchEnd
+                    ),
+                resultCount = fused.size,
+                topScore =
+                    fused.firstOrNull()?.score,
+                bottomScore =
+                    fused.lastOrNull()?.score
+            )
+        )
+    }
+
     suspend fun remove(
         documentId: String,
         collection: EdgeKnowledgeCollection? = null

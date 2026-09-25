@@ -4,6 +4,7 @@ public struct EdgeRAGRequest: Sendable {
     public let filter: EdgeVectorFilter?
     public let topK: Int
     public let minimumScore: Float?
+    public let retrievalMode: EdgeRetrievalMode
     public let systemPrompt: String?
 
     public init(
@@ -12,6 +13,7 @@ public struct EdgeRAGRequest: Sendable {
         filter: EdgeVectorFilter? = nil,
         topK: Int = 3,
         minimumScore: Float? = nil,
+        retrievalMode: EdgeRetrievalMode = .vector,
         systemPrompt: String? = nil
     ) {
         self.query = query
@@ -19,6 +21,7 @@ public struct EdgeRAGRequest: Sendable {
         self.filter = filter
         self.topK = topK
         self.minimumScore = minimumScore
+        self.retrievalMode = retrievalMode
         self.systemPrompt = systemPrompt
     }
 }

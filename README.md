@@ -595,6 +595,56 @@ println(result.metrics?.totalMilliseconds)
 The metrics stay local and are plain framework values; the framework does not upload or
 persist telemetry on its own.
 
+## Hybrid lexical + vector retrieval
+
+v0.4 can combine semantic vector retrieval with local lexical matching. This is useful
+when a query contains exact identifiers such as fault codes, model numbers, serial
+numbers, or part numbers that may not rank reliably through embeddings alone.
+
+```text
+query
+  ├── vector search
+  └── lexical search
+        ↓
+ reciprocal-rank fusion
+        ↓
+   unified top-K
+        ↓
+      EdgeRAG
+```
+
+The built-in in-memory and file-backed vector stores also expose lexical search over the
+chunk text they already persist. `EdgeRetriever.retrieveHybrid(...)` retrieves a wider
+candidate set from both paths and combines ranks with reciprocal-rank fusion, avoiding
+the need to compare raw lexical and cosine score scales directly.
+
+`EdgeRAGRequest.retrievalMode` defaults to vector retrieval for compatibility and can
+be set to hybrid when exact terms and semantic meaning should both influence retrieval.
+
+Swift:
+
+```swift
+let result = try await rag.run(
+    EdgeRAGRequest(
+        query: "What does E31 mean?",
+        collection: equipment,
+        retrievalMode: .hybrid
+    )
+)
+```
+
+Kotlin:
+
+```kotlin
+val result = rag.run(
+    EdgeRAGRequest(
+        query = "What does E31 mean?",
+        collection = equipment,
+        retrievalMode = EdgeRetrievalMode.HYBRID
+    )
+)
+```
+
 ## Example apps
 
 Two small example apps exercise the same framework architecture on each platform:
@@ -741,7 +791,7 @@ Finer-grained diffing and broader visual semantics remain future work.
 - [x] fine-grained page/document incremental re-indexing
 - [x] higher-level collection/source management APIs
 - [x] retrieval observability and metrics
-- [ ] hybrid lexical + vector retrieval
+- [x] hybrid lexical + vector retrieval
 
 ## Principles
 

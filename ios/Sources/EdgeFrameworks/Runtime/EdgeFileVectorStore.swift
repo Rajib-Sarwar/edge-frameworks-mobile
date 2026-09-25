@@ -1,6 +1,6 @@
 import Foundation
 
-public actor EdgeFileVectorStore: EdgeVectorStore {
+public actor EdgeFileVectorStore: EdgeVectorStore, EdgeLexicalSearchStore {
     private struct Record: Codable, Sendable {
         let chunk: EdgeChunk
         let embedding: EdgeEmbedding
@@ -81,6 +81,19 @@ public actor EdgeFileVectorStore: EdgeVectorStore {
                     return lhs.score > rhs.score
                 }
                 .prefix(topK)
+        )
+    }
+
+    public func lexicalSearch(
+        query: String,
+        topK: Int,
+        filter: EdgeVectorFilter?
+    ) async -> [EdgeSearchResult] {
+        EdgeLexicalSearch.search(
+            query: query,
+            chunks: records.values.map(\.chunk),
+            topK: topK,
+            filter: filter
         )
     }
 

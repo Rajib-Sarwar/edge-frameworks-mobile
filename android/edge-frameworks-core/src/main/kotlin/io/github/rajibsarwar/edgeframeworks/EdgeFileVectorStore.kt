@@ -9,7 +9,7 @@ import java.io.File
 
 class EdgeFileVectorStore(
     private val file: File
-) : EdgeVectorStore {
+) : EdgeVectorStore, EdgeLexicalSearchStore {
     private data class Record(
         val chunk: EdgeChunk,
         val embedding: EdgeEmbedding
@@ -75,6 +75,23 @@ class EdgeFileVectorStore(
                     .thenBy { it.chunk.id }
             )
             .take(topK)
+    }
+
+    override suspend fun lexicalSearch(
+        query: String,
+        topK: Int,
+        filter: EdgeVectorFilter?
+    ): List<EdgeSearchResult> {
+        val chunks = synchronized(lock) {
+            records.values.map { it.chunk }
+        }
+
+        return EdgeLexicalSearch.search(
+            query = query,
+            chunks = chunks,
+            topK = topK,
+            filter = filter
+        )
     }
 
     override suspend fun remove(

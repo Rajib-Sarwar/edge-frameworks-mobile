@@ -1,4 +1,4 @@
-public actor EdgeInMemoryVectorStore: EdgeVectorStore {
+public actor EdgeInMemoryVectorStore: EdgeVectorStore, EdgeLexicalSearchStore {
     private struct Entry: Sendable {
         let chunk: EdgeChunk
         let embedding: EdgeEmbedding
@@ -62,6 +62,19 @@ public actor EdgeInMemoryVectorStore: EdgeVectorStore {
                     return lhs.score > rhs.score
                 }
                 .prefix(topK)
+        )
+    }
+
+    public func lexicalSearch(
+        query: String,
+        topK: Int,
+        filter: EdgeVectorFilter?
+    ) async -> [EdgeSearchResult] {
+        EdgeLexicalSearch.search(
+            query: query,
+            chunks: entries.values.map(\.chunk),
+            topK: topK,
+            filter: filter
         )
     }
 

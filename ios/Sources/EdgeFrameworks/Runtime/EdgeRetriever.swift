@@ -158,6 +158,95 @@ public struct EdgeRetriever: Sendable {
         )
     }
 
+    public func retrieveHybrid(
+        query: String,
+        filter: EdgeVectorFilter? = nil,
+        topK: Int = 3
+    ) async throws -> [EdgeSearchResult] {
+        try await retrieveHybridMeasured(
+            query: query,
+            filter: filter,
+            topK: topK
+        ).results
+    }
+
+    public func retrieveHybridMeasured(
+        query: String,
+        filter: EdgeVectorFilter? = nil,
+        topK: Int = 3
+    ) async throws -> EdgeMeasuredRetrieval {
+        try Task.checkCancellation()
+
+        guard let lexicalStore =
+            vectorStore as? any EdgeLexicalSearchStore
+        else {
+            throw EdgeRetrievalError
+                .hybridSearchUnsupported
+        }
+
+        let totalStart =
+            DispatchTime.now().uptimeNanoseconds
+        let embeddingStart = totalStart
+
+        let queryEmbedding =
+            try await embeddingProvider.embed(query)
+
+        let embeddingEnd =
+            DispatchTime.now().uptimeNanoseconds
+
+        try Task.checkCancellation()
+
+        let candidateCount =
+            max(topK * 3, topK)
+
+        async let vectorResults =
+            vectorStore.search(
+                query: queryEmbedding,
+                topK: candidateCount,
+                filter: filter
+            )
+
+        async let lexicalResults =
+            lexicalStore.lexicalSearch(
+                query: query,
+                topK: candidateCount,
+                filter: filter
+            )
+
+        let fused = EdgeHybridRankFusion.fuse(
+            vector: try await vectorResults,
+            lexical: await lexicalResults,
+            topK: topK
+        )
+
+        let searchEnd =
+            DispatchTime.now().uptimeNanoseconds
+
+        return EdgeMeasuredRetrieval(
+            results: fused,
+            metrics: EdgeRetrievalMetrics(
+                embeddingMilliseconds:
+                    Self.milliseconds(
+                        from: embeddingStart,
+                        to: embeddingEnd
+                    ),
+                searchMilliseconds:
+                    Self.milliseconds(
+                        from: embeddingEnd,
+                        to: searchEnd
+                    ),
+                totalMilliseconds:
+                    Self.milliseconds(
+                        from: totalStart,
+                        to: searchEnd
+                    ),
+                resultCount: fused.count,
+                topScore: fused.first?.score,
+                bottomScore: fused.last?.score
+            )
+        )
+    }
+
     public func remove(
         documentID: String,
         from collection: EdgeKnowledgeCollection? = nil

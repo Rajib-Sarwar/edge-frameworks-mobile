@@ -30,12 +30,12 @@ public struct EdgeIncrementalIndexer: Sendable {
         }
 
         let previous = await catalog.source(id: sourceID)
-        var removedDocumentCount = 0
+        var removedChunkCount = 0
 
         if let previous {
             for documentID in previous.documentIDs {
                 try Task.checkCancellation()
-                removedDocumentCount += try await retriever.remove(
+                removedChunkCount += try await retriever.remove(
                     documentID: documentID,
                     collectionID: previous.collectionID
                 )
@@ -69,7 +69,7 @@ public struct EdgeIncrementalIndexer: Sendable {
 
         return .indexed(
             source: source,
-            removedDocumentCount: removedDocumentCount,
+            removedChunkCount: removedChunkCount,
             indexedDocumentCount: documents.count
         )
     }

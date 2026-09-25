@@ -88,6 +88,42 @@ class EdgeRAGOrchestrationTest {
                 "--- BEGIN LOCAL CONTEXT ---"
             )
         )
+
+        val metrics =
+            requireNotNull(result.metrics)
+
+        assertEquals(
+            1,
+            metrics.requestedTopK
+        )
+        assertEquals(
+            1,
+            metrics.retainedResultCount
+        )
+        assertEquals(
+            1,
+            metrics.retrieval.resultCount
+        )
+        assertEquals(
+            result.context.length,
+            metrics.contextCharacterCount
+        )
+        assertTrue(
+            metrics.retrieval
+                .embeddingMilliseconds >= 0
+        )
+        assertTrue(
+            metrics.retrieval
+                .searchMilliseconds >= 0
+        )
+        assertTrue(
+            metrics.generationMilliseconds >= 0
+        )
+        assertTrue(
+            metrics.totalMilliseconds >=
+                metrics.retrieval
+                    .totalMilliseconds
+        )
     }
 
     @Test
@@ -143,6 +179,17 @@ class EdgeRAGOrchestrationTest {
                 .first()
                 .chunk
                 .id
+        )
+        assertEquals(
+            1,
+            result.metrics
+                ?.retainedResultCount
+        )
+        assertEquals(
+            2,
+            result.metrics
+                ?.retrieval
+                ?.resultCount
         )
     }
 }

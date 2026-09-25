@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - `EdgeRAGResult` returning the generated answer, retrieved results, and constructed local context.
 - Per-document source fingerprints and fine-grained incremental re-indexing for changed, added, and removed documents within a source.
 - High-level `EdgeKnowledgeManager` APIs for collection/source listing, summaries, syncing, and removal.
+- RAG observability metrics for embedding, vector search, generation, total latency, result scores/counts, and context size.
 
 ## 0.3.0 - 2026-09-24
 

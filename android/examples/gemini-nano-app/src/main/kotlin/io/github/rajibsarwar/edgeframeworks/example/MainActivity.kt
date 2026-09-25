@@ -3,6 +3,7 @@ package io.github.rajibsarwar.edgeframeworks.example
 import android.app.Activity
 import android.content.Intent
 import android.os.Build
+import android.provider.OpenableColumns
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -26,6 +27,7 @@ import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoAvailability
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoDownloadState
 import io.github.rajibsarwar.edgeframeworks.gemininano.GeminiNanoProvider
 import io.github.rajibsarwar.edgeframeworks.mediapipe.MediaPipeTextEmbeddingProvider
+import io.github.rajibsarwar.edgeframeworks.pdf.AndroidPDFDocumentImporter
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -63,6 +65,9 @@ class MainActivity : Activity() {
     private var ragReady = false
     private var embeddingProvider: MediaPipeTextEmbeddingProvider? = null
     private var ragRetriever: EdgeRetriever? = null
+    private val pdfImporter by lazy {
+        AndroidPDFDocumentImporter(this)
+    }
     private val ragChunker = EdgeTextChunker(
         maxCharacters = 800,
         overlapCharacters = 120
@@ -460,13 +465,14 @@ class MainActivity : Activity() {
     private fun openDocumentPicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
-            type = "text/*"
+            type = "*/*"
             putExtra(
                 Intent.EXTRA_MIME_TYPES,
                 arrayOf(
                     "text/plain",
                     "text/markdown",
-                    "application/json"
+                    "application/json",
+                    "application/pdf"
                 )
             )
         }
@@ -500,29 +506,49 @@ class MainActivity : Activity() {
 
         scope.launch {
             try {
-                val text = contentResolver
-                    .openInputStream(uri)
-                    ?.bufferedReader()
-                    ?.use { it.readText() }
-                    ?: error("Unable to read selected document")
-
-                val name = uri.lastPathSegment
-                    ?.substringAfterLast('/')
-                    ?: "imported-document"
-
-                val document = EdgeDocument(
-                    id = UUID.randomUUID().toString(),
-                    text = text,
-                    metadata = mapOf(
-                        "source" to name
+                val name = displayName(uri)
+                val mimeType = contentResolver.getType(uri)
+                val isPdf =
+                    mimeType == "application/pdf" ||
+                    name.endsWith(
+                        ".pdf",
+                        ignoreCase = true
                     )
-                )
 
-                val chunks = ragChunker.chunk(document)
+                val documents = if (isPdf) {
+                    pdfImporter.importDocument(
+                        contentResolver = contentResolver,
+                        uri = uri,
+                        sourceName = name
+                    )
+                } else {
+                    val text = contentResolver
+                        .openInputStream(uri)
+                        ?.bufferedReader()
+                        ?.use { it.readText() }
+                        ?: error(
+                            "Unable to read selected document"
+                        )
+
+                    listOf(
+                        EdgeDocument(
+                            id = UUID.randomUUID().toString(),
+                            text = text,
+                            metadata = mapOf(
+                                "source" to name,
+                                "mediaType" to "text/plain"
+                            )
+                        )
+                    )
+                }
+
+                val chunks = documents.flatMap {
+                    ragChunker.chunk(it)
+                }
 
                 if (chunks.isEmpty()) {
                     ragStatusView.text =
-                        "Import skipped · document contains no text."
+                        "Import skipped · document contains no extractable text."
                     return@launch
                 }
 
@@ -568,7 +594,13 @@ class MainActivity : Activity() {
                             "%.3f",
                             result.score
                         )
-                        "${index + 1}. [$score] ${result.chunk.text}"
+                        val source =
+                            result.chunk.metadata["source"] ?: "local"
+                        val page = result.chunk.metadata["pageNumber"]
+                            ?.let { " · page $it" }
+                            ?: ""
+
+                        "${index + 1}. [$score] $source$page\n${result.chunk.text}"
                     }
                     .joinToString("\n\n")
 
@@ -691,6 +723,37 @@ class MainActivity : Activity() {
             text = "Friday dinner is reserved at an Italian restaurant at 7:00 PM."
         )
     )
+
+    private fun displayName(
+        uri: android.net.Uri
+    ): String {
+        val projection = arrayOf(
+            OpenableColumns.DISPLAY_NAME
+        )
+
+        contentResolver.query(
+            uri,
+            projection,
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            val index = cursor.getColumnIndex(
+                OpenableColumns.DISPLAY_NAME
+            )
+
+            if (
+                index >= 0 &&
+                cursor.moveToFirst()
+            ) {
+                return cursor.getString(index)
+            }
+        }
+
+        return uri.lastPathSegment
+            ?.substringAfterLast('/')
+            ?: "imported-document"
+    }
 
     private companion object {
         const val REQUEST_IMPORT_DOCUMENT = 1001

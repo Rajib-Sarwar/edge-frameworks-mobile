@@ -51,3 +51,9 @@ The first Gradle build needs network access to fetch the embedding model asset. 
 - MediaPipe on-device text embeddings
 - top-K semantic retrieval with similarity scores
 - retrieved-context generation with Gemini Nano
+- persistent local vector storage
+- TXT, Markdown, JSON, and text-based PDF import
+- PDF page-aware retrieval metadata through PdfBox-Android
+
+
+PDF ingestion in v0.2 extracts existing text only. Scanned/image-only PDFs require OCR and are intentionally out of scope.

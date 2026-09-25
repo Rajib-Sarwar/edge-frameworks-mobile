@@ -18,4 +18,5 @@ rootProject.name = "edge-frameworks-mobile-android"
 include(":edge-frameworks-core")
 include(":edge-frameworks-gemini-nano")
 include(":edge-frameworks-mediapipe-embeddings")
+include(":edge-frameworks-pdf")
 include(":examples:gemini-nano-app")

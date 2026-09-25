@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- v0.2 development: Apple Foundation Models structured output and tool calling.
+- Cross-platform tool abstraction.
+- Cross-platform local RAG primitives, on-device embedding providers, persistent vector storage, document chunking, and native document import.
+- Text-based PDF ingestion on iOS through PDFKit and on Android through PdfBox-Android.
+- PDF source/page metadata preserved for local retrieval.
+
+### Notes
+
+- v0.2 PDF support extracts existing PDF text only; OCR and scanned/image-only PDF ingestion are out of scope.
+- DOCX, HTML, image ingestion, richer collection management, and advanced re-indexing remain future work.
+
 ## 0.1.0
 
 Initial public baseline for the mobile edge-AI framework.

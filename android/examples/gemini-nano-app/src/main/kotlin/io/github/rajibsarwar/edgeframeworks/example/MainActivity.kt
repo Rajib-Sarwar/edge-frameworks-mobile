@@ -83,6 +83,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         embeddingProvider?.close()
+        pdfImporter.close()
         scope.cancel()
         super.onDestroy()
     }
@@ -560,8 +561,18 @@ class MainActivity : Activity() {
 
                 retriever.index(chunks)
 
+                val ocrPages = documents.count {
+                    it.metadata["extractionMethod"] == "ocr"
+                }
+
+                val ocrNote = if (ocrPages > 0) {
+                    " · OCR used on $ocrPages page(s)"
+                } else {
+                    ""
+                }
+
                 ragStatusView.text =
-                    "Imported $name · ${chunks.size} chunks persisted locally."
+                    "Imported $name · ${chunks.size} chunks persisted locally$ocrNote."
             } catch (error: Exception) {
                 ragStatusView.text =
                     "Document import failed: ${error.message ?: error::class.java.simpleName}"

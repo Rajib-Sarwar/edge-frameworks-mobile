@@ -435,6 +435,55 @@ stable page keys, so changing one page does not require re-embedding every uncha
 page. Older persisted catalogs without per-document fingerprints remain readable and are
 upgraded on the next changed-source sync.
 
+## Knowledge management API
+
+v0.4 adds a higher-level API for apps that need to present collections and sources as
+first-class product UI rather than talking directly to the catalog/indexer primitives.
+
+```text
+EdgeKnowledgeManager
+   ├── list collection summaries
+   ├── inspect one collection
+   ├── create/update a collection
+   ├── list sources
+   ├── inspect one source
+   ├── sync/re-index a source
+   ├── remove a source
+   └── remove a collection + vectors
+```
+
+Collection summaries include source count, document count, and the most recent indexing
+timestamp. This is designed for product surfaces such as equipment workspaces, document
+libraries, source status screens, and re-index/remove controls.
+
+Swift:
+
+```swift
+let manager = EdgeKnowledgeManager(
+    catalog: catalog,
+    indexer: indexer
+)
+
+let assets = await manager.collections()
+let manuals = await manager.sources(
+    in: "asset-123"
+)
+```
+
+Kotlin:
+
+```kotlin
+val manager = EdgeKnowledgeManager(
+    catalog = catalog,
+    indexer = indexer
+)
+
+val assets = manager.collections()
+val manuals = manager.sources(
+    collectionId = "asset-123"
+)
+```
+
 ## Automatic RAG orchestration
 
 v0.4 starts by collapsing the manual retrieve → context-build → generate sequence into
@@ -644,7 +693,7 @@ Finer-grained diffing and broader visual semantics remain future work.
 - [x] collection and metadata-filter aware orchestration
 - [x] retrieved context/results returned to the caller
 - [x] fine-grained page/document incremental re-indexing
-- [ ] higher-level collection/source management APIs
+- [x] higher-level collection/source management APIs
 - [ ] retrieval observability and metrics
 - [ ] hybrid lexical + vector retrieval
 
